@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AVEIR</title>
+  <style>body{margin:0;background:#0a0a0a}</style>
+  <script>
+    // Route to the right version of the site. Phones/small screens -> mobile.
+    (function () {
+      var mobile = window.matchMedia('(max-width: 899px)').matches;
+      location.replace(mobile ? 'mobile/' : 'desktop/');
+    })();
+  </script>
+</head>
+<body>
+  <noscript>
+    <div style="color:#f2efe9;font-family:monospace;padding:24px;">
+      JavaScript is required.
+      <a href="desktop/" style="color:#e01313;">Desktop site</a> ·
+      <a href="mobile/" style="color:#e01313;">Mobile site</a>
+    </div>
+  </noscript>
+</body>
+</html>
