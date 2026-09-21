@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>AVEIR ADMIN LOGIN</title>
+  <link rel="icon" type="image/png" href="../../favicon.png">
+  <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="../admin.css">
+  <script src="../../aveir-cloud.js" defer></script>
+  <script src="login.js" defer></script>
+</head>
+<body>
+  <div class="av-ash"></div>
+  <main class="av-auth">
+    <section class="av-card">
+      <a href="../../"><img class="av-card-logo" src="../../email-assets/avr.png" alt="AVR"></a>
+      <div>
+        <div class="av-side-tag">ADMIN - OWNERS ONLY</div>
+        <div class="av-title" id="heading">SIGN IN</div>
+      </div>
+
+      <div class="av-tabs" id="tabs">
+        <button class="av-tab is-on" type="button" data-mode="in">SIGN IN</button>
+        <button class="av-tab" type="button" data-mode="setup">FIRST TIME</button>
+      </div>
+
+      <form class="av-form" id="form" novalidate>
+        <input class="av-input" id="email" type="email" autocomplete="username" placeholder="EMAIL" required>
+        <input class="av-input" id="password" type="password" autocomplete="current-password" placeholder="PASSWORD" required>
+        <input class="av-input" id="password2" type="password" autocomplete="new-password" placeholder="CONFIRM PASSWORD" hidden>
+        <button class="av-btn" id="submit" type="submit">SIGN IN</button>
+      </form>
+
+      <div class="av-note" id="note"></div>
+
+      <div class="av-row" id="links">
+        <button class="av-link" id="forgot" type="button">FORGOT PASSWORD</button>
+        <a class="av-back" href="../../">← BACK TO STORE</a>
+      </div>
+
+      <div class="av-row" id="pending" hidden>
+        <button class="av-btn-ghost" id="resend" type="button">RESEND EMAIL</button>
+        <button class="av-btn-ghost" id="recheck" type="button">I VERIFIED</button>
+        <button class="av-link" id="signout" type="button">SIGN OUT</button>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

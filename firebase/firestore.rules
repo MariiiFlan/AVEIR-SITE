@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function staffPath() { return /databases/$(database)/documents/staff/$(request.auth.uid); }
+    function isStaff() { return signedIn() && exists(staffPath()); }
+    function isAdmin() { return isStaff() && get(staffPath()).data.role == 'admin'; }
+    function invitePath(email) { return /databases/$(database)/documents/invites/$(email); }
+    function bootstrapDone() { return exists(/databases/$(database)/documents/meta/bootstrap); }
+
+    match /meta/bootstrap {
+      allow read: if true;
+      allow create: if isStaff();
+      allow update, delete: if false;
+    }
+
+    match /staff/{uid} {
+      allow read: if isStaff() || (signedIn() && request.auth.uid == uid);
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.auth.token.email_verified == true
+        && request.resource.data.keys().hasOnly(['email', 'role', 'name', 'createdAt'])
+        && request.resource.data.email == myEmail()
+        && request.resource.data.createdAt == request.time
+        && (
+          (!bootstrapDone() && request.resource.data.role == 'admin')
+          || (exists(invitePath(myEmail())) && request.resource.data.role == get(invitePath(myEmail())).data.role)
+        );
+      allow update: if isAdmin()
+        && request.auth.uid != uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+        && request.resource.data.role in ['admin', 'owner'];
+      allow delete: if isAdmin() && request.auth.uid != uid;
+    }
+
+    match /invites/{email} {
+      allow read: if isStaff() || (signedIn() && myEmail() == email);
+      allow create: if isStaff()
+        && request.resource.data.keys().hasOnly(['email', 'role', 'invitedBy', 'createdAt'])
+        && request.resource.data.email == email
+        && request.resource.data.role in ['admin', 'owner']
+        && (request.resource.data.role == 'owner' || isAdmin())
+        && request.resource.data.createdAt == request.time;
+      allow delete: if isStaff();
+    }
+
+    match /orders/{id} {
+      allow read: if isStaff();
+      allow create: if isStaff()
+        && request.resource.data.test == true
+        && request.resource.data.status == 'NEW';
+      allow update: if isStaff()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'tracking', 'updatedAt'])
+        && request.resource.data.status in ['NEW', 'PACKED', 'SHIPPED'];
+      allow delete: if isAdmin();
+    }
+
+    match /subscribers/{email} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'joined', 'ts', 'source'])
+        && request.resource.data.email == email
+        && email.size() < 200
+        && email.matches('^[^@\\s/]+@[^@\\s/]+\\.[^@\\s/]+$')
+        && request.resource.data.joined is string && request.resource.data.joined.size() < 20
+        && request.resource.data.ts is int
+        && request.resource.data.source is string && request.resource.data.source.size() <= 30;
+      allow read, delete: if isStaff();
+    }
+
+    match /sms/{digits} {
+      allow create: if request.resource.data.keys().hasOnly(['phone', 'digits', 'joined', 'ts', 'source'])
+        && request.resource.data.digits == digits
+        && digits.matches('^[0-9]{10,15}$')
+        && request.resource.data.phone is string && request.resource.data.phone.size() <= 30
+        && request.resource.data.joined is string && request.resource.data.joined.size() < 20
+        && request.resource.data.ts is int
+        && request.resource.data.source is string && request.resource.data.source.size() <= 30;
+      allow read, delete: if isStaff();
+    }
+
+    match /settings/{id} {
+      allow read, write: if isStaff();
+    }
+  }
+}

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>AVEIR ADMIN TEAM</title>
+  <link rel="icon" type="image/png" href="../../favicon.png">
+  <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="../admin.css">
+  <script src="../../aveir-cloud.js" defer></script>
+  <script src="team.js" defer></script>
+</head>
+<body>
+  <div class="av-gate" id="gate">CHECKING ACCESS...</div>
+  <div class="av-shell">
+    <aside class="av-side">
+      <div>
+        <a href="../../"><img class="av-side-logo" src="../../email-assets/avr.png" alt="AVR"></a>
+        <div class="av-side-tag">ADMIN - OWNERS ONLY</div>
+      </div>
+      <nav class="av-nav">
+        <a href="../orders/">ORDERS</a>
+        <a href="../email/">EMAIL BLAST</a>
+        <a href="../profit/">COSTS &amp; PROFIT</a>
+        <a href="../../tees/">PRODUCTS</a>
+        <a href="./" class="is-on">TEAM</a>
+      </nav>
+      <div class="av-me">
+        <div class="av-label">SIGNED IN</div>
+        <div class="av-me-email" id="me"></div>
+        <button class="av-link" id="signout" type="button">SIGN OUT</button>
+      </div>
+    </aside>
+
+    <main class="av-main">
+      <div class="av-head">
+        <div><span class="av-title">TEAM</span><span class="av-head-count" id="count"></span></div>
+      </div>
+
+      <div class="av-body">
+        <div class="av-stack">
+          <section class="av-panel">
+            <div class="av-panel-head"><span class="av-label">WHO CAN LOG IN</span><span class="av-label" id="staffCount"></span></div>
+            <div id="staff"><div class="av-empty">LOADING...</div></div>
+          </section>
+          <section class="av-panel">
+            <div class="av-panel-head"><span class="av-label">WAITING TO SET UP</span><span class="av-label" id="inviteCount"></span></div>
+            <div id="invites"><div class="av-empty">LOADING...</div></div>
+          </section>
+        </div>
+
+        <section class="av-panel">
+          <div class="av-panel-head"><span class="av-label">ADD SOMEONE</span></div>
+          <form class="av-panel-body" id="inviteForm" novalidate>
+            <input class="av-input" id="inviteEmail" type="email" placeholder="THEIR EMAIL" autocomplete="off">
+            <select class="av-input" id="inviteRole">
+              <option value="owner">OWNER - ORDERS, EMAIL, PROFIT</option>
+              <option value="admin">ADMIN - EVERYTHING + TEAM</option>
+            </select>
+            <button class="av-btn" id="inviteBtn" type="submit">ADD TO TEAM</button>
+            <div class="av-note" id="inviteNote"></div>
+            <div class="av-note">THEY GO TO <b id="loginUrl"></b>, PICK FIRST TIME, USE THIS EMAIL AND MAKE A PASSWORD, THEN CLICK THE VERIFY LINK WE EMAIL THEM.</div>
+          </form>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
