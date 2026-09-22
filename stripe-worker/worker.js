@@ -1,4 +1,4 @@
-const FEE_RATE = 0.025;
+const FEE_RATE = 0;
 const DEFAULT_STORE_URL = 'https://aveir.us';
 const ALLOWED_ORIGINS = ['https://aveir.us', 'https://www.aveir.us', 'https://mariiiflan.github.io'];
 const SIZES = ['S', 'M', 'L', 'XL', '2XL'];
@@ -6,7 +6,10 @@ const MAX_QTY = 20;
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const WEBHOOK_TOLERANCE_SECONDS = 300;
 const STORE_TIMEZONE = 'America/Los_Angeles';
+const PRODUCTS_CACHE_MS = 30000;
+const PRODUCTS_LIMIT = 300;
 let googleToken = null;
+let productsCache = null;
 
 function originOf(url) {
   try { return new URL(url).origin; } catch (e) { return ''; }
@@ -31,7 +34,38 @@ async function loadStore(env) {
   const text = await r.text();
   const m = text.match(/AVEIR_STORE\s*=\s*(\{[\s\S]*?\});/);
   if (!m) throw new Error('catalog unreadable');
-  return JSON.parse(m[1]);
+  const store = JSON.parse(m[1]);
+  const taken = {};
+  (store.catalog || []).forEach(p => { p.kind = p.kind || 'tees'; taken[p.slug] = true; });
+  (await loadProducts(env)).forEach(p => { if (!taken[p.slug]) store.catalog.push(p); });
+  return store;
+}
+
+async function loadProducts(env) {
+  if (productsCache && productsCache.at > Date.now() - PRODUCTS_CACHE_MS) return productsCache.items;
+  const q = { structuredQuery: { from: [{ collectionId: 'products' }], where: { fieldFilter: { field: { fieldPath: 'live' }, op: 'EQUAL', value: { booleanValue: true } } }, limit: PRODUCTS_LIMIT } };
+  const r = await firestore(env, 'POST', ':runQuery', q);
+  if (!r.ok || !Array.isArray(r.body)) throw new Error('products unavailable');
+  const items = r.body.filter(x => x.document).map(x => {
+    const f = x.document.fields || {};
+    const d = {};
+    for (const k in f) d[k] = fromValue(f[k]);
+    const price = Number(d.price) || 0;
+    const was = Number(d.was) || 0;
+    return {
+      slug: x.document.name.split('/').pop(),
+      name: String(d.name || '').toUpperCase(),
+      kind: d.kind || 'tees',
+      price,
+      was: was > price ? was : price,
+      sizes: Array.isArray(d.sizes) && d.sizes.length ? d.sizes.map(String) : SIZES,
+      colors: Array.isArray(d.colors) ? d.colors.map(c => String(c).toLowerCase()) : [],
+      cover: String(d.cover || ''),
+      cloud: true
+    };
+  }).filter(p => p.slug && p.price > 0);
+  productsCache = { at: Date.now(), items };
+  return items;
 }
 
 async function stripe(env, method, path, params) {
@@ -207,15 +241,19 @@ async function createSession(request, env, origin) {
     if (!prod) return json({ error: 'unknown item' }, 400, origin);
     const qty = Math.round(Number(it.qty));
     if (!(qty >= 1 && qty <= MAX_QTY)) return json({ error: 'bad quantity' }, 400, origin);
-    const size = SIZES.includes(String(it.size).toUpperCase()) ? String(it.size).toUpperCase() : '';
+    const allowedSizes = (prod.sizes && prod.sizes.length ? prod.sizes : SIZES).map(z => String(z).toUpperCase());
+    const size = allowedSizes.includes(String(it.size || '').toUpperCase()) ? String(it.size).toUpperCase() : '';
+    if (!size) return json({ error: 'bad size' }, 400, origin);
     const color = String(it.color || '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 20);
+    if (prod.cloud && prod.colors.length && !prod.colors.includes(color)) return json({ error: 'bad color' }, 400, origin);
     const unit = Math.round(prod.price * 100);
     const unitAfter = Math.round(prod.price * 100 * (1 - rate));
     subC += unit * qty;
     afterC += unitAfter * qty;
     const label = prod.name + (size || color ? ' (' + [size, color.toUpperCase()].filter(Boolean).join(' / ') + ')' : '');
     summary.push(label + ' x' + qty);
-    lines.push({ name: prod.name, variant: [size ? 'SIZE ' + size : '', color.toUpperCase()].filter(Boolean).join(' / '), qty: 'x' + qty, img: color ? '../tees/' + prod.slug + '/' + color + '.png' : '' });
+    const img = prod.cloud ? (prod.cover || '') : (color ? '../tees/' + prod.slug + '/' + color + '.png' : '');
+    lines.push({ name: prod.name, variant: [size ? 'SIZE ' + size : '', color.toUpperCase()].filter(Boolean).join(' / '), qty: 'x' + qty, img });
     p.set(`line_items[${i}][quantity]`, String(qty));
     p.set(`line_items[${i}][price_data][currency]`, 'usd');
     p.set(`line_items[${i}][price_data][unit_amount]`, String(unitAfter));
@@ -245,7 +283,8 @@ async function createSession(request, env, origin) {
   }
 
   const total = afterC + shipC + taxC;
-  p.set('payment_intent_data[application_fee_amount]', String(Math.round(total * FEE_RATE)));
+  const feeC = Math.round(total * FEE_RATE);
+  if (feeC > 0) p.set('payment_intent_data[application_fee_amount]', String(feeC));
   p.set('payment_intent_data[transfer_data][destination]', env.CONNECTED_ACCOUNT_ID);
 
   const name = String(b.name || '').slice(0, 100);

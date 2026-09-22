@@ -35,11 +35,13 @@
     box.innerHTML = list.map(p => {
       const self = me && p.id === me.uid;
       const other = p.role === 'admin' ? 'owner' : 'admin';
+      const canProducts = p.role === 'admin' || p.products === true;
       const actions = admin && !self
         ? '<button class="av-btn-ghost" data-act="role" data-id="' + esc(p.id) + '" data-role="' + other + '">MAKE ' + other.toUpperCase() + '</button>' +
+          (p.role === 'admin' ? '' : '<button class="av-btn-ghost" data-act="products" data-id="' + esc(p.id) + '" data-on="' + (p.products === true ? '0' : '1') + '">' + (p.products === true ? 'PRODUCTS OFF' : 'PRODUCTS ON') + '</button>') +
           '<button class="av-btn-ghost av-btn-danger" data-act="remove" data-id="' + esc(p.id) + '" data-email="' + esc(p.email) + '">REMOVE</button>'
         : '';
-      return '<div class="av-person"><div><div class="av-person-email">' + esc(p.email) + chip(p.role) + (self ? '<span class="av-chip av-chip-you">YOU</span>' : '') +
+      return '<div class="av-person"><div><div class="av-person-email">' + esc(p.email) + chip(p.role) + (canProducts ? '<span class="av-chip av-chip-products">PRODUCTS</span>' : '') + (self ? '<span class="av-chip av-chip-you">YOU</span>' : '') +
         '</div><div class="av-person-meta">' + (when(p.createdAt) ? 'JOINED ' + when(p.createdAt) : '') + '</div></div>' +
         '<div class="av-person-actions">' + actions + '</div></div>';
     }).join('') || '<div class="av-empty">NOBODY YET</div>';
@@ -65,6 +67,8 @@
       if (kind === 'role') {
         if (!confirm('CHANGE THIS PERSON TO ' + b.dataset.role.toUpperCase() + '?')) return;
         await cloud.setRole(b.dataset.id, b.dataset.role);
+      } else if (kind === 'products') {
+        await cloud.setProductsPerm(b.dataset.id, b.dataset.on === '1');
       } else if (kind === 'remove') {
         if (!confirm('REMOVE ' + b.dataset.email.toUpperCase() + ' FROM THE TEAM? THEY LOSE ADMIN ACCESS RIGHT AWAY.')) return;
         await cloud.removeStaff(b.dataset.id);
@@ -103,7 +107,7 @@
     btn.disabled = true;
     noteTo(note, 'ADDING...');
     try {
-      const email = await cloud.invite($('inviteEmail').value, $('inviteRole').value);
+      const email = await cloud.invite($('inviteEmail').value, $('inviteRole').value, $('inviteProducts').checked);
       $('inviteEmail').value = '';
       noteTo(note, email.toUpperCase() + ' CAN NOW SET UP THEIR LOGIN', 'good');
     } catch (err) {

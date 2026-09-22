@@ -8,6 +8,25 @@ service cloud.firestore {
     function isAdmin() { return isStaff() && get(staffPath()).data.role == 'admin'; }
     function invitePath(email) { return /databases/$(database)/documents/invites/$(email); }
     function bootstrapDone() { return exists(/databases/$(database)/documents/meta/bootstrap); }
+    function canEditProducts() { return isStaff() && (get(staffPath()).data.role == 'admin' || get(staffPath()).data.products == true); }
+    function validProduct(slug, d) {
+      return d.keys().hasOnly(['slug', 'name', 'kind', 'cat', 'price', 'was', 'sizes', 'colors', 'cover', 'desc', 'live', 'createdAt', 'updatedAt', 'updatedBy'])
+        && d.slug == slug
+        && slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$') && slug.size() <= 60
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
+        && d.kind in ['tees', 'hats', 'pants', 'shorts']
+        && d.cat is string && d.cat.size() <= 60
+        && d.price is number && d.price >= 0 && d.price <= 10000
+        && d.was is number && d.was >= 0 && d.was <= 10000
+        && d.sizes is list && d.sizes.size() >= 1 && d.sizes.size() <= 20
+        && d.colors is list && d.colors.size() <= 20
+        && d.cover is string && d.cover.size() <= 60000
+        && d.desc is string && d.desc.size() <= 2000
+        && d.live is bool
+        && d.createdAt is timestamp
+        && d.updatedAt == request.time
+        && d.updatedBy == myEmail();
+    }
 
     match /meta/bootstrap {
       allow read: if true;
@@ -20,27 +39,58 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.auth.uid == uid
         && request.auth.token.email_verified == true
-        && request.resource.data.keys().hasOnly(['email', 'role', 'name', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['email', 'role', 'name', 'createdAt', 'products'])
         && request.resource.data.email == myEmail()
         && request.resource.data.createdAt == request.time
         && (
-          (!bootstrapDone() && request.resource.data.role == 'admin')
-          || (exists(invitePath(myEmail())) && request.resource.data.role == get(invitePath(myEmail())).data.role)
+          (!bootstrapDone() && request.resource.data.role == 'admin' && !('products' in request.resource.data))
+          || (exists(invitePath(myEmail()))
+            && request.resource.data.role == get(invitePath(myEmail())).data.role
+            && request.resource.data.get('products', false) == get(invitePath(myEmail())).data.get('products', false))
         );
       allow update: if isAdmin()
         && request.auth.uid != uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
-        && request.resource.data.role in ['admin', 'owner'];
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'products'])
+        && request.resource.data.role in ['admin', 'owner']
+        && (!('products' in request.resource.data) || request.resource.data.products is bool);
       allow delete: if isAdmin() && request.auth.uid != uid;
+    }
+
+    match /products/{slug} {
+      allow get: if isStaff() || resource.data.live == true;
+      allow list: if isStaff() || resource.data.live == true;
+      allow create: if canEditProducts()
+        && validProduct(slug, request.resource.data)
+        && request.resource.data.createdAt == request.time;
+      allow update: if canEditProducts()
+        && validProduct(slug, request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if canEditProducts();
+    }
+
+    match /productImages/{slug} {
+      allow get: if isStaff() || (exists(/databases/$(database)/documents/products/$(slug))
+        && get(/databases/$(database)/documents/products/$(slug)).data.live == true);
+      allow list: if isStaff();
+      allow write: if canEditProducts()
+        && (request.resource.data == null || (
+          request.resource.data.keys().hasOnly(['images', 'updatedAt', 'updatedBy'])
+          && request.resource.data.images is map
+          && request.resource.data.images.size() <= 20
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.updatedBy == myEmail()
+        ));
     }
 
     match /invites/{email} {
       allow read: if isStaff() || (signedIn() && myEmail() == email);
       allow create: if isStaff()
-        && request.resource.data.keys().hasOnly(['email', 'role', 'invitedBy', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['email', 'role', 'invitedBy', 'createdAt', 'products'])
         && request.resource.data.email == email
         && request.resource.data.role in ['admin', 'owner']
         && (request.resource.data.role == 'owner' || isAdmin())
+        && request.resource.data.get('products', false) is bool
+        && (request.resource.data.get('products', false) == false || isAdmin())
         && request.resource.data.createdAt == request.time;
       allow delete: if isStaff();
     }

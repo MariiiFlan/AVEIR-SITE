@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>AVEIR ADMIN PRODUCTS</title>
+  <link rel="icon" type="image/png" href="../../favicon.png">
+  <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="../admin.css">
+  <link rel="stylesheet" href="products.css">
+  <script src="../../catalog.js"></script>
+  <script src="../../aveir-cloud.js" defer></script>
+  <script src="../../aveir-image.js" defer></script>
+  <script src="../../aveir-products.js" defer></script>
+  <script src="products.js" defer></script>
+</head>
+<body>
+  <div class="av-gate" id="gate">CHECKING ACCESS...</div>
+  <div class="av-shell">
+    <aside class="av-side">
+      <div>
+        <a href="../../"><img class="av-side-logo" src="../../email-assets/avr.png" alt="AVR"></a>
+        <div class="av-side-tag">ADMIN - OWNERS ONLY</div>
+      </div>
+      <nav class="av-nav">
+        <a href="../orders/">ORDERS</a>
+        <a href="../email/">EMAIL BLAST</a>
+        <a href="../profit/">COSTS &amp; PROFIT</a>
+        <a href="./" class="is-on">PRODUCTS</a>
+        <a href="../team/">TEAM</a>
+      </nav>
+      <div class="av-me">
+        <div class="av-label">SIGNED IN</div>
+        <div class="av-me-email" id="me"></div>
+        <button class="av-link" id="signout" type="button">SIGN OUT</button>
+      </div>
+    </aside>
+
+    <main class="av-main">
+      <div class="av-head">
+        <div><span class="av-title">PRODUCTS</span><span class="av-head-count" id="count"></span></div>
+        <button class="av-btn" id="newBtn" type="button">+ NEW LISTING</button>
+      </div>
+
+      <div class="av-body av-body-products">
+        <div class="av-stack">
+          <section class="av-panel">
+            <div class="av-panel-head"><span class="av-label">MADE IN ADMIN</span><span class="av-label" id="cloudCount"></span></div>
+            <div id="cloudList"><div class="av-empty">LOADING...</div></div>
+          </section>
+          <section class="av-panel">
+            <div class="av-panel-head"><span class="av-label">IN CODE (CATALOG.JS)</span><span class="av-label" id="codeCount"></span></div>
+            <div id="codeList"><div class="av-empty">NOTHING IN CATALOG.JS</div></div>
+            <div class="av-note av-note-pad">THESE COME FROM CATALOG.JS IN THE REPO. EDIT THEM IN VS CODE AND PUSH. THEY CAN NOT BE CHANGED HERE.</div>
+          </section>
+        </div>
+
+        <section class="av-panel av-editor" id="editor" hidden>
+          <div class="av-panel-head"><span class="av-label" id="editorTitle">NEW LISTING</span><button class="av-link" id="closeBtn" type="button">CLOSE</button></div>
+          <form class="av-panel-body" id="form" novalidate>
+            <div class="av-field">
+              <label class="av-label" for="kind">CATEGORY</label>
+              <select class="av-input" id="kind">
+                <option value="tees">TEES</option>
+                <option value="hats">HATS</option>
+                <option value="pants">PANTS</option>
+                <option value="shorts">SHORTS</option>
+              </select>
+            </div>
+            <div class="av-field">
+              <label class="av-label" for="name">NAME</label>
+              <input class="av-input" id="name" type="text" placeholder="KEEP IT WEIRD CAP" maxlength="80" autocomplete="off">
+            </div>
+            <div class="av-field">
+              <label class="av-label" for="slug">URL SLUG</label>
+              <input class="av-input" id="slug" type="text" placeholder="keep-it-weird-cap" maxlength="60" autocomplete="off" spellcheck="false">
+              <div class="av-note" id="slugNote">LOWERCASE LETTERS, NUMBERS AND DASHES. LOCKED AFTER THE FIRST SAVE.</div>
+            </div>
+            <div class="av-field">
+              <label class="av-label" for="cat">LABEL ON THE SITE</label>
+              <input class="av-input" id="cat" type="text" placeholder="HATS / DROP 002" maxlength="60" autocomplete="off">
+            </div>
+            <div class="av-2col">
+              <div class="av-field">
+                <label class="av-label" for="price">PRICE $</label>
+                <input class="av-input" id="price" type="number" min="0" step="0.01" placeholder="29.99" inputmode="decimal">
+              </div>
+              <div class="av-field">
+                <label class="av-label" for="was">COMPARE AT $ (CROSSED OUT)</label>
+                <input class="av-input" id="was" type="number" min="0" step="0.01" placeholder="39.99" inputmode="decimal">
+              </div>
+            </div>
+            <div class="av-field">
+              <label class="av-label" for="sizes">SIZES (COMMA SEPARATED)</label>
+              <input class="av-input" id="sizes" type="text" placeholder="S, M, L, XL, 2XL" autocomplete="off">
+            </div>
+            <div class="av-field">
+              <div class="av-row"><span class="av-label">COLORS AND PHOTOS</span><span class="av-note" id="colorNote">ONE PHOTO PER COLOR. PHOTOS ARE SHRUNK IN YOUR BROWSER BEFORE SAVING.</span></div>
+              <div id="colors" class="av-colors"></div>
+              <div class="av-addcolor">
+                <input class="av-input" id="newColor" type="text" placeholder="ADD A COLOR, LIKE BLACK" list="colorList" autocomplete="off">
+                <datalist id="colorList"></datalist>
+                <button class="av-btn-ghost" id="addColorBtn" type="button">ADD</button>
+              </div>
+            </div>
+            <div class="av-field">
+              <label class="av-label" for="desc">DESCRIPTION (OPTIONAL)</label>
+              <textarea class="av-input av-textarea" id="desc" rows="3" maxlength="2000" placeholder="HEAVYWEIGHT 6-PANEL. EMBROIDERED FRONT."></textarea>
+            </div>
+            <label class="av-check"><input type="checkbox" id="live"> <span>LIVE ON THE SITE</span></label>
+            <div class="av-row">
+              <button class="av-btn" id="saveBtn" type="submit">SAVE</button>
+              <button class="av-btn-ghost av-btn-danger" id="deleteBtn" type="button" hidden>DELETE</button>
+            </div>
+            <div class="av-note" id="note"></div>
+          </form>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -63,6 +63,9 @@ select.av-input option { background: #0d0d0d; }
 .av-chip-admin { background: #e01313; color: #fff; }
 .av-chip-owner { background: #f2efe9; color: #0a0a0a; }
 .av-chip-you { border: 1px solid #555; color: #999; }
+.av-chip-products { border: 1px solid #3fd18b; color: #3fd18b; }
+.av-check-inline { display: flex; align-items: center; gap: 10px; font: 700 10px 'Space Mono', monospace; letter-spacing: .2em; cursor: pointer; }
+.av-check-inline input { width: 16px; height: 16px; accent-color: #e01313; }
 .av-empty { padding: 18px 20px; font: 400 10px 'Space Mono', monospace; letter-spacing: .15em; color: #666; }
 .av-gate { position: fixed; inset: 0; z-index: 50; background: #0a0a0a; display: flex; align-items: center; justify-content: center; font: 700 11px 'Space Mono', monospace; letter-spacing: .25em; color: #777; text-align: center; padding: 24px; }
 

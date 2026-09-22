@@ -82,7 +82,9 @@ window.AVEIR_CLOUD = window.AVEIR_CLOUD || (function () {
     const key = cleanEmail(fresh.email);
     const invite = await ctx.db.collection('invites').doc(key).get();
     if (invite.exists) {
-      await ctx.db.collection('staff').doc(fresh.uid).set({ email: key, role: invite.data().role, name: '', createdAt: now(ctx.fb) });
+      const seat = { email: key, role: invite.data().role, name: '', createdAt: now(ctx.fb) };
+      if (invite.data().products === true) seat.products = true;
+      await ctx.db.collection('staff').doc(fresh.uid).set(seat);
       await ctx.db.collection('invites').doc(key).delete().catch(() => {});
       return true;
     }
@@ -204,7 +206,7 @@ window.AVEIR_CLOUD = window.AVEIR_CLOUD || (function () {
       return watch(ctx => ctx.db.collection('invites'), cb);
     },
 
-    async invite(email, role) {
+    async invite(email, role, products) {
       const key = cleanEmail(email);
       if (!validEmail(key)) throw new Error('THAT EMAIL LOOKS WRONG');
       if (AVEIR_ROLES.indexOf(role) < 0) throw new Error('PICK A ROLE');
@@ -214,7 +216,9 @@ window.AVEIR_CLOUD = window.AVEIR_CLOUD || (function () {
       if (!taken.empty) throw new Error('THAT PERSON IS ALREADY ON THE TEAM');
       const existing = await ctx.db.collection('invites').doc(key).get();
       if (existing.exists) throw new Error('THAT EMAIL IS ALREADY INVITED');
-      await ctx.db.collection('invites').doc(key).set({ email: key, role, invitedBy: me ? cleanEmail(me.email) : '', createdAt: now(ctx.fb) });
+      const inv = { email: key, role, invitedBy: me ? cleanEmail(me.email) : '', createdAt: now(ctx.fb) };
+      if (products) inv.products = true;
+      await ctx.db.collection('invites').doc(key).set(inv);
       return key;
     },
 
@@ -229,6 +233,51 @@ window.AVEIR_CLOUD = window.AVEIR_CLOUD || (function () {
 
     removeStaff(uid) {
       return boot().then(ctx => ctx.db.collection('staff').doc(uid).delete());
+    },
+
+    setProductsPerm(uid, on) {
+      return boot().then(ctx => ctx.db.collection('staff').doc(uid).update({ products: !!on }));
+    },
+
+    watchProducts(cb) {
+      return watch(ctx => ctx.db.collection('products'), cb);
+    },
+
+    async saveProduct(slug, data, existing) {
+      const ctx = await boot();
+      const me = ctx.auth.currentUser;
+      const doc = Object.assign({}, data, {
+        slug,
+        createdAt: existing && existing.createdAt ? existing.createdAt : now(ctx.fb),
+        updatedAt: now(ctx.fb),
+        updatedBy: me ? cleanEmail(me.email) : ''
+      });
+      await ctx.db.collection('products').doc(slug).set(doc);
+      return slug;
+    },
+
+    async deleteProduct(slug) {
+      const ctx = await boot();
+      await ctx.db.collection('products').doc(slug).delete();
+      await ctx.db.collection('productImages').doc(slug).delete().catch(() => {});
+    },
+
+    getProductImages(slug) {
+      return boot()
+        .then(ctx => ctx.db.collection('productImages').doc(slug).get())
+        .then(d => (d.exists ? d.data().images || {} : {}));
+    },
+
+    async saveProductImages(slug, images) {
+      const ctx = await boot();
+      const me = ctx.auth.currentUser;
+      const keys = Object.keys(images || {});
+      if (!keys.length) return ctx.db.collection('productImages').doc(slug).delete().catch(() => {});
+      return ctx.db.collection('productImages').doc(slug).set({
+        images,
+        updatedAt: now(ctx.fb),
+        updatedBy: me ? cleanEmail(me.email) : ''
+      });
     },
 
     getSetting(id) {

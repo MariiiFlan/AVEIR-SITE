@@ -1,0 +1,22 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function staff() { return firestore.get(/databases/(default)/documents/staff/$(request.auth.uid)).data; }
+    function canEditProducts() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/staff/$(request.auth.uid))
+        && (staff().role == 'admin' || staff().products == true);
+    }
+
+    match /products/{slug}/{file} {
+      allow read: if true;
+      allow write: if canEditProducts()
+        && (request.resource == null
+          || (request.resource.size < 6 * 1024 * 1024 && request.resource.contentType.matches('image/.*')));
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

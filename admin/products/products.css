@@ -1,0 +1,39 @@
+.av-body-products { grid-template-columns: 1fr 440px; }
+.av-note-pad { padding: 12px 20px 16px; }
+.av-field { display: flex; flex-direction: column; gap: 7px; }
+.av-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.av-textarea { resize: vertical; min-height: 72px; line-height: 1.6; }
+.av-check { display: flex; align-items: center; gap: 10px; font: 700 10px 'Space Mono', monospace; letter-spacing: .2em; cursor: pointer; }
+.av-check input { width: 16px; height: 16px; accent-color: #e01313; }
+.av-editor { position: sticky; top: 16px; }
+.av-colors { display: flex; flex-direction: column; gap: 8px; }
+.av-color { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center; border: 1px solid #232323; padding: 8px 10px; }
+.av-color-thumb { width: 56px; height: 56px; background: #2e2e2e; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.av-color-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.av-color-thumb span { font: 700 9px 'Space Mono', monospace; letter-spacing: .15em; color: #666; }
+.av-color-name { font: 700 11px 'Space Mono', monospace; letter-spacing: .15em; text-transform: uppercase; }
+.av-color-state { font: 400 9px 'Space Mono', monospace; letter-spacing: .12em; color: #666; margin-top: 4px; }
+.av-color-actions { display: flex; gap: 6px; }
+.av-file { display: none; }
+.av-addcolor { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.av-product { display: grid; grid-template-columns: 54px 1fr auto; gap: 14px; align-items: center; padding: 12px 20px; border-bottom: 1px solid #1c1c1c; }
+.av-product:last-child { border-bottom: none; }
+.av-product-thumb { width: 54px; height: 54px; background: #2e2e2e; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.av-product-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.av-product-thumb span { font-family: 'Anton', Impact, sans-serif; font-size: 13px; color: #555; }
+.av-product-name { font-family: 'Anton', Impact, sans-serif; font-size: 17px; letter-spacing: .03em; }
+.av-product-meta { font: 400 10px 'Space Mono', monospace; letter-spacing: .12em; color: #777; margin-top: 4px; }
+.av-chip-live { background: #3fd18b; color: #0a0a0a; }
+.av-chip-draft { border: 1px solid #555; color: #999; }
+.av-chip-kind { background: #232323; color: #ddd; }
+.av-chip-code { border: 1px solid #e01313; color: #e01313; }
+.av-product.is-editing { background: #1a1010; }
+@media (max-width: 1100px) {
+  .av-body-products { grid-template-columns: 1fr; }
+  .av-editor { position: static; }
+}
+@media (max-width: 860px) {
+  .av-2col { grid-template-columns: 1fr; }
+  .av-product { grid-template-columns: 54px 1fr; }
+  .av-product-actions { grid-column: 1 / -1; }
+}
