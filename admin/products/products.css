@@ -28,6 +28,8 @@
 .av-chip-kind { background: #232323; color: #ddd; }
 .av-chip-code { border: 1px solid #ff06bc; color: #ff06bc; }
 .av-product.is-editing { background: #1a1010; }
+.av-product-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.av-product-actions .av-btn-ghost { white-space: nowrap; }
 @media (max-width: 1100px) {
   .av-body-products { grid-template-columns: 1fr; }
   .av-editor { position: static; }

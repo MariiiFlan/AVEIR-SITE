@@ -6,12 +6,14 @@
   const IMG = window.AVEIR_IMAGE;
   const KIND_ORDER = ['tees', 'hats', 'pants', 'shorts'];
   const MAX_DOC_BYTES = 900000;
+  const REPO_BASE = '../../';
   let me = null;
   let stop = null;
   let all = [];
   let form = null;
   let sizesTouched = false;
   let busy = false;
+  let codeShots = {};
 
   function esc(t) {
     return String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -61,16 +63,86 @@
       '</div>'
     ).join('') || '<div class="av-empty">NOTHING YET. HIT + NEW LISTING.</div>';
 
-    const code = ((window.AVEIR_STORE && window.AVEIR_STORE.catalog) || []).filter(p => !p.cloud);
+    const adopted = {};
+    all.forEach(p => { adopted[p.id] = true; });
+    const code = ((window.AVEIR_STORE && window.AVEIR_STORE.catalog) || []).filter(p => !p.cloud && !adopted[p.slug]);
     $('codeCount').textContent = code.length ? code.length + ' IN CODE' : '';
     $('codeList').innerHTML = code.map(p =>
       '<div class="av-product">' +
-        '<div class="av-product-thumb"><span>AVR</span></div>' +
+        '<div class="av-product-thumb">' + thumb(codeShots[p.slug], p.name) + '</div>' +
         '<div><div class="av-product-name">' + esc(p.name) + '</div>' +
           '<div class="av-product-meta">' + chip(P.kinds[p.kind || 'tees'] || 'TEES', 'av-chip-kind') + chip('IN CODE', 'av-chip-code') + ' ' + esc(money(p.price)) + (p.was > p.price ? ' <s>' + esc(money(p.was)) + '</s>' : '') + '</div></div>' +
-        '<div class="av-product-actions"><a class="av-btn-ghost" href="../../' + esc(P.href(p)) + '" target="_blank" rel="noopener">VIEW</a></div>' +
+        '<div class="av-product-actions">' +
+          '<button class="av-btn-ghost" data-adopt="' + esc(p.slug) + '" type="button"' + (busy ? ' disabled' : '') + '>MOVE TO ADMIN</button>' +
+          '<a class="av-btn-ghost" href="../../' + esc(P.href(p)) + '" target="_blank" rel="noopener">VIEW</a>' +
+        '</div>' +
       '</div>'
-    ).join('') || '<div class="av-empty">NOTHING IN CATALOG.JS</div>';
+    ).join('') || '<div class="av-empty">EVERYTHING FROM CATALOG.JS IS IN ADMIN NOW</div>';
+  }
+
+
+  function shotUrl(p, color) {
+    return REPO_BASE + (P.kinds[p.kind] ? p.kind : 'tees') + '/' + p.slug + '/' + color + '.png';
+  }
+
+  function findShots(p) {
+    const colors = window.AVEIR_COLORS || [];
+    return Promise.all(colors.map(c => new Promise(done => {
+      const im = new Image();
+      im.onload = () => done(c);
+      im.onerror = () => done('');
+      im.src = shotUrl(p, c);
+    }))).then(hit => hit.filter(Boolean));
+  }
+
+  function scanCode() {
+    const code = ((window.AVEIR_STORE && window.AVEIR_STORE.catalog) || []).filter(p => !p.cloud);
+    code.forEach(p => {
+      if (codeShots[p.slug] !== undefined) return;
+      findShots(p).then(colors => {
+        codeShots[p.slug] = colors.length ? shotUrl(p, colors[0]) : '';
+        renderList();
+      });
+    });
+  }
+
+  async function adopt(slug) {
+    if (busy) return;
+    const p = ((window.AVEIR_STORE && window.AVEIR_STORE.catalog) || []).find(x => x.slug === slug && !x.cloud);
+    if (!p) return;
+    if (all.some(x => x.id === slug)) { note('THAT ONE IS ALREADY IN ADMIN.', 'bad'); return; }
+    busy = true;
+    note('MOVING ' + String(p.name).toUpperCase() + ' INTO ADMIN...');
+    renderList();
+    try {
+      const kind = P.kinds[p.kind] ? p.kind : 'tees';
+      const colors = await findShots(p);
+      const images = {};
+      let cover = '';
+      for (let i = 0; i < colors.length; i++) {
+        const pair = await IMG.pair(shotUrl(p, colors[i]));
+        images[colors[i]] = pair.full;
+        if (!cover) cover = pair.thumb;
+      }
+      await cloud.saveProduct(slug, {
+        name: String(p.name || slug).toUpperCase(),
+        kind,
+        cat: p.cat || P.kinds[kind],
+        price: Math.round(Number(p.price) * 100) / 100,
+        was: p.was && p.was > p.price ? Math.round(Number(p.was) * 100) / 100 : 0,
+        sizes: Array.isArray(p.sizes) && p.sizes.length ? p.sizes.slice() : P.defaultSizes[kind].slice(),
+        colors,
+        cover,
+        desc: '',
+        live: false
+      }, null);
+      if (colors.length) await cloud.saveProductImages(slug, images);
+      note(String(p.name).toUpperCase() + ' IS IN ADMIN AS A DRAFT' + (colors.length ? ' WITH ' + colors.length + ' PHOTO' + (colors.length > 1 ? 'S' : '') : ' WITH NO PHOTOS') + '. EDIT IT, THEN TICK LIVE.', 'good');
+    } catch (err) {
+      note(cloud.friendly(err), 'bad');
+    }
+    busy = false;
+    renderList();
   }
 
   function weight() {
@@ -269,6 +341,8 @@
       renderList();
     });
     renderList();
+    scanCode();
+    if (P) P.ready.then(scanCode);
   }
 
   $('newBtn').addEventListener('click', () => openEditor(null));
@@ -276,6 +350,11 @@
   $('form').addEventListener('submit', save);
   $('deleteBtn').addEventListener('click', remove);
   $('signout').addEventListener('click', () => cloud.signOut());
+
+  $('codeList').addEventListener('click', e => {
+    const b = e.target.closest('[data-adopt]');
+    if (b) adopt(b.dataset.adopt);
+  });
 
   $('cloudList').addEventListener('click', e => {
     const b = e.target.closest('[data-edit]');

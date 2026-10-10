@@ -60,6 +60,9 @@ window.AVEIR_PRODUCTS = window.AVEIR_PRODUCTS || (function () {
   function merge() {
     const list = window.AVEIR_CATALOG || (window.AVEIR_CATALOG = []);
     for (let i = list.length - 1; i >= 0; i--) if (list[i].cloud) list.splice(i, 1);
+    const live = {};
+    cloudItems.forEach(p => { if (p.slug) live[p.slug] = true; });
+    for (let i = list.length - 1; i >= 0; i--) if (live[list[i].slug]) list.splice(i, 1);
     list.forEach(normalizeCode);
     const taken = {};
     list.forEach(p => { taken[p.slug] = true; });

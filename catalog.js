@@ -1,9 +1,9 @@
 window.AVEIR_STORE = {
   "catalog": [
-    { "slug": "i-love-art-tee",    "name": "I <3 ART TEE",          "cat": "TEES / DROP 001", "price": 39.99, "was": 59.99 },
-    { "slug": "i-love-art-2",      "name": "IM ART TEE",            "cat": "TEES / DROP 001", "price": 39.99, "was": 59.99 },
-    { "slug": "keep-it-weird-tee", "name": "KEEP IT WEIRD TEE",     "cat": "TEES / DROP 001", "price": 39.99, "was": 59.99 },
-    { "slug": "prospect-by-faith", "name": "PROSPECT BY FAITH TEE", "cat": "TEES / DROP 001", "price": 39.99, "was": 59.99 }
+    { "slug": "i-love-art-tee",    "name": "I <3 ART TEE",          "cat": "TEES / DROP 001", "price": 49.99, "was": 59.99 },
+    { "slug": "i-love-art-2",      "name": "IM ART TEE",            "cat": "TEES / DROP 001", "price": 49.99, "was": 59.99 },
+    { "slug": "keep-it-weird-tee", "name": "KEEP IT WEIRD TEE",     "cat": "TEES / DROP 001", "price": 49.99, "was": 59.99 },
+    { "slug": "prospect-by-faith", "name": "PROSPECT BY FAITH TEE", "cat": "TEES / DROP 001", "price": 49.99, "was": 59.99 }
   ],
   "colors": ["black", "white", "red", "cream", "grey", "gray", "blue", "navy", "green", "pink", "purple", "brown", "orange", "yellow"],
   "promos": { "WEIRD10": 0.10, "AVEIRCULTURE": 0.15 },
