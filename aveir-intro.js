@@ -37,7 +37,7 @@ window.AVEIR_INTRO = window.AVEIR_INTRO || (function () {
     el.id = AVEIR_INTRO_STYLE_ID;
     el.textContent = [
       '#' + AVEIR_INTRO_ROOT_ID + '{position:relative;z-index:3;width:100%;height:100vh;height:100svh;min-height:420px;background:#000;overflow:hidden;}',
-      '#' + AVEIR_INTRO_ROOT_ID + ' .av-intro-stage{position:absolute;inset:0;will-change:transform,opacity;}',
+      '#' + AVEIR_INTRO_ROOT_ID + ' .av-intro-stage{position:absolute;inset:0;will-change:transform,opacity;cursor:pointer;}',
       '#' + AVEIR_INTRO_ROOT_ID + ' video{display:block;width:100%;height:100%;object-fit:cover;background:#000;}',
       '#' + AVEIR_INTRO_ROOT_ID + ' .av-intro-veil{position:absolute;inset:0;pointer-events:none;background:radial-gradient(125% 95% at 50% 38%, rgba(0,0,0,0) 42%, rgba(0,0,0,.6) 100%);}',
       '#' + AVEIR_INTRO_ROOT_ID + ' .av-intro-ui{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:24px clamp(16px,4vw,44px) 32px;pointer-events:none;}',
@@ -65,7 +65,7 @@ window.AVEIR_INTRO = window.AVEIR_INTRO || (function () {
     wrap.id = AVEIR_INTRO_ROOT_ID;
     wrap.innerHTML =
       '<div class="av-intro-stage">' +
-        '<video playsinline muted autoplay preload="auto" poster="' + BASE + AVEIR_INTRO_POSTER + '">' +
+        '<video playsinline webkit-playsinline muted autoplay preload="auto" poster="' + BASE + AVEIR_INTRO_POSTER + '">' +
           '<source src="' + BASE + AVEIR_INTRO_VIDEO + '" type="video/mp4">' +
           '<source src="' + BASE + AVEIR_INTRO_VIDEO_ALT + '" type="video/webm">' +
         '</video>' +
@@ -75,7 +75,7 @@ window.AVEIR_INTRO = window.AVEIR_INTRO || (function () {
         '<div class="av-intro-row">' +
           '<div class="av-intro-tag">AVEIR <b>STUDIOS</b></div>' +
           '<div class="av-intro-btns">' +
-            '<button type="button" data-act="sound">SOUND ON</button>' +
+            '<button type="button" data-act="sound">TAP FOR SOUND</button>' +
             '<button type="button" data-act="enter">ENTER</button>' +
           '</div>' +
         '</div>' +
@@ -145,19 +145,22 @@ window.AVEIR_INTRO = window.AVEIR_INTRO || (function () {
     });
   }
 
-  function sound(btn) {
+  function sound(on) {
     if (!vid) return;
-    vid.muted = !vid.muted;
-    btn.textContent = vid.muted ? 'SOUND ON' : 'SOUND OFF';
-    if (!vid.muted) vid.play().catch(function () {});
+    const next = typeof on === 'boolean' ? on : vid.muted;
+    vid.muted = !next;
+    vid.volume = 1;
+    const btn = wrap.querySelector('[data-act="sound"]');
+    if (btn) btn.textContent = vid.muted ? 'TAP FOR SOUND' : 'SOUND OFF';
+    if (!vid.muted) vid.play().catch(function () { vid.muted = true; if (btn) btn.textContent = 'TAP FOR SOUND'; });
   }
 
   function wire() {
     wrap.addEventListener('click', function (e) {
       const b = e.target.closest ? e.target.closest('[data-act]') : null;
-      if (!b) return;
-      if (b.dataset.act === 'enter') enter();
-      if (b.dataset.act === 'sound') sound(b);
+      if (b && b.dataset.act === 'enter') { enter(); return; }
+      if (b && b.dataset.act === 'sound') { sound(); return; }
+      if (!b) sound(true);
     });
     vid.addEventListener('timeupdate', function () {
       if (!vid.duration) return;
