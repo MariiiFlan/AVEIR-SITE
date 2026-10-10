@@ -286,6 +286,23 @@ window.AVEIR_CLOUD = window.AVEIR_CLOUD || (function () {
 
     setSetting(id, data) {
       return boot().then(ctx => ctx.db.collection('settings').doc(id).set(data));
+    },
+
+    getArrivals() {
+      return boot()
+        .then(ctx => ctx.db.collection('settings').doc('arrivals').get())
+        .then(d => (d.exists ? { mode: d.data().mode || 'auto', picks: d.data().picks || [] } : { mode: 'auto', picks: [] }));
+    },
+
+    async saveArrivals(mode, picks) {
+      const ctx = await boot();
+      const me = ctx.auth.currentUser;
+      return ctx.db.collection('settings').doc('arrivals').set({
+        mode: mode === 'manual' ? 'manual' : 'auto',
+        picks: (picks || []).slice(0, 24).map(String),
+        updatedAt: now(ctx.fb),
+        updatedBy: me ? cleanEmail(me.email) : ''
+      });
     }
   };
 })();

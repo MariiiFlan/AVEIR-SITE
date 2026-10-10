@@ -337,7 +337,7 @@
     if (s.state === 'in') {
       if (s.staff.role === 'admin' || s.staff.products === true) { start(s.staff); return; }
       gate.hidden = false;
-      gate.innerHTML = 'YOU ARE SIGNED IN AS ' + esc(String(s.user.email).toUpperCase()) + ' BUT YOU DO NOT HAVE THE PRODUCTS PERMISSION YET.<br><br>ASK AN ADMIN TO TURN IT ON FOR YOU ON THE TEAM PAGE.<br><br><a href="../orders/" style="color:#e01313;">BACK TO ORDERS</a>';
+      gate.innerHTML = 'YOU ARE SIGNED IN AS ' + esc(String(s.user.email).toUpperCase()) + ' BUT YOU DO NOT HAVE THE PRODUCTS PERMISSION YET.<br><br>ASK AN ADMIN TO TURN IT ON FOR YOU ON THE TEAM PAGE.<br><br><a href="../orders/" style="color:#ff06bc;">BACK TO ORDERS</a>';
       return;
     }
     if (stop) stop();

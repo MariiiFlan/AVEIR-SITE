@@ -128,8 +128,19 @@ service cloud.firestore {
       allow read, delete: if isStaff();
     }
 
+    match /settings/arrivals {
+      allow read: if true;
+      allow write: if canEditProducts()
+        && request.resource.data.keys().hasOnly(['mode', 'picks', 'updatedAt', 'updatedBy'])
+        && request.resource.data.mode in ['auto', 'manual']
+        && request.resource.data.picks is list
+        && request.resource.data.picks.size() <= 24
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == myEmail();
+    }
+
     match /settings/{id} {
-      allow read, write: if isStaff();
+      allow read, write: if isStaff() && id != 'arrivals';
     }
   }
 }

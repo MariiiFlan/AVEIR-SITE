@@ -1,4 +1,4 @@
-const FEE_RATE = 0;
+const FEE_RATE = 0.05;
 const DEFAULT_STORE_URL = 'https://aveir.us';
 const ALLOWED_ORIGINS = ['https://aveir.us', 'https://www.aveir.us', 'https://mariiiflan.github.io'];
 const SIZES = ['S', 'M', 'L', 'XL', '2XL'];

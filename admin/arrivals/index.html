@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>AVEIR ADMIN NEW ARRIVALS</title>
+  <link rel="icon" type="image/png" href="../../favicon.png">
+  <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="../admin.css">
+  <link rel="stylesheet" href="arrivals.css">
+  <script src="../../catalog.js"></script>
+  <script src="../../aveir-cloud.js" defer></script>
+  <script src="../../aveir-products.js" defer></script>
+  <script src="arrivals.js" defer></script>
+</head>
+<body>
+  <div class="av-gate" id="gate">CHECKING ACCESS...</div>
+  <div class="av-shell">
+    <aside class="av-side">
+      <div>
+        <a href="../../"><img class="av-side-logo" src="../../email-assets/avr.png" alt="AVR"></a>
+        <div class="av-side-tag">ADMIN - OWNERS ONLY</div>
+      </div>
+      <nav class="av-nav">
+        <a href="../orders/">ORDERS</a>
+        <a href="../email/">EMAIL BLAST</a>
+        <a href="../profit/">COSTS &amp; PROFIT</a>
+        <a href="../products/">PRODUCTS</a>
+        <a href="./" class="is-on">NEW ARRIVALS</a>
+        <a href="../team/">TEAM</a>
+      </nav>
+      <div class="av-me">
+        <div class="av-label">SIGNED IN</div>
+        <div class="av-me-email" id="me"></div>
+        <button class="av-link" id="signout" type="button">SIGN OUT</button>
+      </div>
+    </aside>
+
+    <main class="av-main">
+      <div class="av-head">
+        <div><span class="av-title">NEW ARRIVALS</span><span class="av-head-count" id="count"></span></div>
+        <button class="av-btn" id="saveBtn" type="button" disabled>SAVE</button>
+      </div>
+
+      <div class="av-body">
+        <div class="av-stack">
+          <section class="av-panel">
+            <div class="av-panel-head"><span class="av-label">HOW THE ROW IS FILLED</span></div>
+            <div class="av-panel-body">
+              <div class="av-tabs" id="modeTabs">
+                <button class="av-tab is-on" type="button" data-mode="auto">AUTOMATIC</button>
+                <button class="av-tab" type="button" data-mode="manual">PROMO ORDER</button>
+              </div>
+              <div class="av-note av-note-pad" id="modeNote"></div>
+            </div>
+          </section>
+
+          <section class="av-panel" id="pickPanel" hidden>
+            <div class="av-panel-head"><span class="av-label">ON THE HOMEPAGE</span><span class="av-label" id="pickCount"></span></div>
+            <div id="pickList"><div class="av-empty">NOTHING PICKED YET. ADD SOMETHING BELOW.</div></div>
+          </section>
+
+          <section class="av-panel" id="poolPanel" hidden>
+            <div class="av-panel-head"><span class="av-label">EVERYTHING ELSE</span><span class="av-label" id="poolCount"></span></div>
+            <div id="poolList"><div class="av-empty">LOADING...</div></div>
+          </section>
+
+          <section class="av-panel">
+            <div class="av-panel-head"><span class="av-label">WHAT THE HOMEPAGE WILL SHOW</span></div>
+            <div class="av-panel-body">
+              <div class="av-prev" id="preview"><div class="av-empty">LOADING...</div></div>
+              <div class="av-note av-note-pad">PRODUCTS WITH NO PHOTO ARE NEVER SHOWN IN THIS ROW.</div>
+            </div>
+          </section>
+
+          <div class="av-note" id="note"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
