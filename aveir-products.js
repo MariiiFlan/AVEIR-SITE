@@ -43,6 +43,8 @@ window.AVEIR_PRODUCTS = window.AVEIR_PRODUCTS || (function () {
       colors: Array.isArray(raw.colors) ? raw.colors.map(c => String(c).toLowerCase()) : [],
       cover: String(raw.cover || ''),
       desc: String(raw.desc || ''),
+      soldOut: raw.soldOut === true,
+      soldSizes: Array.isArray(raw.soldSizes) ? raw.soldSizes.map(z => String(z).toUpperCase()) : [],
       createdAt: Number(raw.createdAt) || 0,
       href: 'item/?p=' + encodeURIComponent(String(raw.slug || '')),
       cloud: true
@@ -51,6 +53,8 @@ window.AVEIR_PRODUCTS = window.AVEIR_PRODUCTS || (function () {
 
   function normalizeCode(p) {
     if (!p.kind) p.kind = 'tees';
+    p.soldOut = p.soldOut === true;
+    if (!Array.isArray(p.soldSizes)) p.soldSizes = [];
     if (!p.href) p.href = p.kind + '/' + p.slug + '/';
     if (!p.sizes) p.sizes = AVEIR_DEFAULT_SIZES[p.kind] || AVEIR_DEFAULT_SIZES.tees;
     if (!p.createdAt) p.createdAt = 0;

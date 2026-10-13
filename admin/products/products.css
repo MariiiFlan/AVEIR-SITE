@@ -39,3 +39,20 @@
   .av-product { grid-template-columns: 54px 1fr; }
   .av-product-actions { grid-column: 1 / -1; }
 }
+
+.av-sizegrid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.av-sizegrid label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #262626;
+  padding: 8px 11px;
+  cursor: pointer;
+  font: 700 10px/1 'Space Mono', monospace;
+  letter-spacing: 0.14em;
+  color: #c9c9c9;
+}
+.av-sizegrid label:hover { border-color: #ff06bc; }
+.av-sizegrid label.is-out { border-color: #ff06bc; color: #ff06bc; text-decoration: line-through; }
+.av-sizegrid input { accent-color: #ff06bc; }
+.av-note-pad { padding: 10px 0 0; }

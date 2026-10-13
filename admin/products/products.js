@@ -34,14 +34,14 @@
   }
 
   function blank(kind) {
-    return { slug: '', name: '', kind, cat: P.kinds[kind], price: '', was: '', sizes: P.defaultSizes[kind].slice(), colors: [], images: {}, thumbs: {}, coverColor: '', desc: '', live: false, createdAt: null, isNew: true, loading: false };
+    return { slug: '', name: '', kind, cat: P.kinds[kind], price: '', was: '', sizes: P.defaultSizes[kind].slice(), colors: [], images: {}, thumbs: {}, coverColor: '', desc: '', live: false, soldOut: false, soldSizes: [], createdAt: null, isNew: true, loading: false };
   }
 
   function fromDoc(d) {
     return {
       slug: d.id, name: d.name || '', kind: P.kinds[d.kind] ? d.kind : 'tees', cat: d.cat || '', price: d.price, was: d.was || '',
       sizes: Array.isArray(d.sizes) ? d.sizes.slice() : [], colors: Array.isArray(d.colors) ? d.colors.slice() : [],
-      images: {}, thumbs: d.cover ? { __saved: d.cover } : {}, coverColor: '', desc: d.desc || '', live: !!d.live, createdAt: d.createdAt || null, isNew: false, loading: true
+      images: {}, thumbs: d.cover ? { __saved: d.cover } : {}, coverColor: '', desc: d.desc || '', live: !!d.live, soldOut: d.soldOut === true, soldSizes: Array.isArray(d.soldSizes) ? d.soldSizes.map(z => String(z).toUpperCase()) : [], createdAt: d.createdAt || null, isNew: false, loading: true
     };
   }
 
@@ -134,7 +134,9 @@
         colors,
         cover,
         desc: '',
-        live: false
+        live: false,
+        soldOut: false,
+        soldSizes: []
       }, null);
       if (colors.length) await cloud.saveProductImages(slug, images);
       note(String(p.name).toUpperCase() + ' IS IN ADMIN AS A DRAFT' + (colors.length ? ' WITH ' + colors.length + ' PHOTO' + (colors.length > 1 ? 'S' : '') : ' WITH NO PHOTOS') + '. EDIT IT, THEN TICK LIVE.', 'good');
@@ -199,6 +201,8 @@
     $('sizes').value = form.sizes.join(', ');
     $('desc').value = form.desc;
     $('live').checked = form.live;
+    $('soldOut').checked = form.soldOut;
+    renderSoldSizes();
     $('deleteBtn').hidden = form.isNew;
     $('editorTitle').textContent = form.isNew ? 'NEW LISTING' : 'EDIT ' + form.name.toUpperCase();
     $('saveBtn').textContent = form.isNew ? 'CREATE LISTING' : 'SAVE CHANGES';
@@ -217,6 +221,22 @@
     form.sizes = $('sizes').value.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
     form.desc = $('desc').value.trim();
     form.live = $('live').checked;
+    form.soldOut = $('soldOut').checked;
+    form.soldSizes = form.soldSizes.filter(z => form.sizes.includes(z));
+  }
+
+  function renderSoldSizes() {
+    const box = $('soldSizes');
+    const sizes = $('sizes').value.split(',').map(z => z.trim().toUpperCase()).filter(Boolean);
+    if (!sizes.length) {
+      box.innerHTML = '<span class="av-empty">ADD SIZES FIRST.</span>';
+      return;
+    }
+    box.innerHTML = sizes.map(z => {
+      const out = form.soldSizes.includes(z);
+      return '<label class="' + (out ? 'is-out' : '') + '"><input type="checkbox" data-size="' + esc(z) + '"' +
+        (out ? ' checked' : '') + '> ' + esc(z) + '</label>';
+    }).join('');
   }
 
   function openEditor(p) {
@@ -296,7 +316,8 @@
     const doc = {
       name: form.name, kind: form.kind, cat: form.cat || P.kinds[form.kind], price: Math.round(Number(form.price) * 100) / 100,
       was: form.was === '' ? 0 : Math.round(Number(form.was) * 100) / 100,
-      sizes: form.sizes, colors: form.colors, cover, desc: form.desc, live: form.live
+      sizes: form.sizes, colors: form.colors, cover, desc: form.desc, live: form.live,
+      soldOut: form.soldOut, soldSizes: form.soldSizes
     };
     try {
       await cloud.saveProduct(form.slug, doc, form.isNew ? null : { createdAt: form.createdAt });
@@ -369,7 +390,15 @@
     if (!sizesTouched) $('sizes').value = P.defaultSizes[k].join(', ');
     if (!$('cat').value.trim() || Object.values(P.kinds).indexOf($('cat').value.trim().toUpperCase()) >= 0) $('cat').value = P.kinds[k];
   });
-  $('sizes').addEventListener('input', () => { sizesTouched = true; });
+  $('sizes').addEventListener('input', () => { sizesTouched = true; renderSoldSizes(); });
+  $('soldSizes').addEventListener('change', e => {
+    const t = e.target.closest ? e.target.closest('[data-size]') : null;
+    if (!t) return;
+    const z = t.dataset.size;
+    form.soldSizes = t.checked ? form.soldSizes.concat([z]).filter((v, i, a2) => a2.indexOf(v) === i) : form.soldSizes.filter(x => x !== z);
+    renderSoldSizes();
+  });
+  $('soldOut').addEventListener('change', () => { form.soldOut = $('soldOut').checked; });
   $('name').addEventListener('input', () => { if (form && form.isNew && !$('slug').dataset.touched) $('slug').value = slugify($('name').value); });
   $('slug').addEventListener('input', () => { $('slug').dataset.touched = '1'; $('slug').value = slugify($('slug').value) || $('slug').value.toLowerCase(); });
 

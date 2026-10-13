@@ -1,4 +1,9 @@
 const FEE_RATE = 0.05;
+const STRIPE_PCT = 0.029;
+const STRIPE_FLAT = 30;
+const STRIPE_INTL_PCT = 0.015;
+const STRIPE_FX_PCT = 0.01;
+const TAX_FLAT = 100;
 const DEFAULT_STORE_URL = 'https://aveir.us';
 const ALLOWED_ORIGINS = ['https://aveir.us', 'https://www.aveir.us', 'https://mariiiflan.github.io'];
 const SIZES = ['S', 'M', 'L', 'XL', '2XL'];
@@ -61,6 +66,8 @@ async function loadProducts(env) {
       sizes: Array.isArray(d.sizes) && d.sizes.length ? d.sizes.map(String) : SIZES,
       colors: Array.isArray(d.colors) ? d.colors.map(c => String(c).toLowerCase()) : [],
       cover: String(d.cover || ''),
+      soldOut: d.soldOut === true,
+      soldSizes: Array.isArray(d.soldSizes) ? d.soldSizes.map(z => String(z).toUpperCase()) : [],
       cloud: true
     };
   }).filter(p => p.slug && p.price > 0);
@@ -239,11 +246,13 @@ async function createSession(request, env, origin) {
   for (const it of b.items) {
     const prod = bySlug[it.slug];
     if (!prod) return json({ error: 'unknown item' }, 400, origin);
+    if (prod.soldOut === true) return json({ error: 'sold out', slug: it.slug }, 409, origin);
     const qty = Math.round(Number(it.qty));
     if (!(qty >= 1 && qty <= MAX_QTY)) return json({ error: 'bad quantity' }, 400, origin);
     const allowedSizes = (prod.sizes && prod.sizes.length ? prod.sizes : SIZES).map(z => String(z).toUpperCase());
     const size = allowedSizes.includes(String(it.size || '').toUpperCase()) ? String(it.size).toUpperCase() : '';
     if (!size) return json({ error: 'bad size' }, 400, origin);
+    if ((prod.soldSizes || []).includes(size)) return json({ error: 'size sold out', slug: it.slug, size }, 409, origin);
     const color = String(it.color || '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 20);
     if (prod.cloud && prod.colors.length && !prod.colors.includes(color)) return json({ error: 'bad color' }, 400, origin);
     const unit = Math.round(prod.price * 100);
@@ -268,9 +277,7 @@ async function createSession(request, env, origin) {
   const shipC = (ship.id === 'std' && subC >= freeOver * 100) ? 0 : Math.round(ship.price * 100);
   const addr = b.address || {};
   const st = String(addr.state || '').trim().toUpperCase();
-  const taxes = store.tax || {};
-  const taxRate = taxes[st] ?? taxes.default ?? 0;
-  const taxC = Math.round(afterC * taxRate);
+  const taxC = afterC > 0 ? TAX_FLAT : 0;
 
   for (const extra of [['SHIPPING - ' + ship.name, shipC], ['SALES TAX', taxC]]) {
     if (extra[1] > 0) {
@@ -283,12 +290,13 @@ async function createSession(request, env, origin) {
   }
 
   const total = afterC + shipC + taxC;
-  const feeC = Math.round(total * FEE_RATE);
+  const name = String(b.name || '').slice(0, 100);
+  const cc = countryCode(addr.country);
+  const coverPct = STRIPE_PCT + (cc === 'US' ? 0 : STRIPE_INTL_PCT + STRIPE_FX_PCT);
+  const feeC = Math.min(total, Math.round(total * (FEE_RATE + coverPct)) + STRIPE_FLAT);
   if (feeC > 0) p.set('payment_intent_data[application_fee_amount]', String(feeC));
   p.set('payment_intent_data[transfer_data][destination]', env.CONNECTED_ACCOUNT_ID);
 
-  const name = String(b.name || '').slice(0, 100);
-  const cc = countryCode(addr.country);
   if (name && addr.line1 && cc) {
     p.set('payment_intent_data[shipping][name]', name);
     if (b.phone) p.set('payment_intent_data[shipping][phone]', String(b.phone).slice(0, 30));

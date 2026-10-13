@@ -303,6 +303,27 @@ window.AVEIR_CLOUD = window.AVEIR_CLOUD || (function () {
         updatedAt: now(ctx.fb),
         updatedBy: me ? cleanEmail(me.email) : ''
       });
+    },
+
+    getHero() {
+      return boot()
+        .then(ctx => ctx.db.collection('settings').doc('hero').get())
+        .then(d => (d.exists
+          ? { mode: d.data().mode || 'auto', picks: d.data().picks || [], intervalMs: d.data().intervalMs || 6000 }
+          : { mode: 'auto', picks: [], intervalMs: 6000 }));
+    },
+
+    async saveHero(mode, picks, intervalMs) {
+      const ctx = await boot();
+      const me = ctx.auth.currentUser;
+      const ms = Math.min(20000, Math.max(2500, Math.round(Number(intervalMs) || 6000)));
+      return ctx.db.collection('settings').doc('hero').set({
+        mode: mode === 'manual' ? 'manual' : 'auto',
+        picks: (picks || []).slice(0, 12).map(String),
+        intervalMs: ms,
+        updatedAt: now(ctx.fb),
+        updatedBy: me ? cleanEmail(me.email) : ''
+      });
     }
   };
 })();

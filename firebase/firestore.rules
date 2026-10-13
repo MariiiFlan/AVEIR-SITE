@@ -10,7 +10,7 @@ service cloud.firestore {
     function bootstrapDone() { return exists(/databases/$(database)/documents/meta/bootstrap); }
     function canEditProducts() { return isStaff() && (get(staffPath()).data.role == 'admin' || get(staffPath()).data.products == true); }
     function validProduct(slug, d) {
-      return d.keys().hasOnly(['slug', 'name', 'kind', 'cat', 'price', 'was', 'sizes', 'colors', 'cover', 'desc', 'live', 'createdAt', 'updatedAt', 'updatedBy'])
+      return d.keys().hasOnly(['slug', 'name', 'kind', 'cat', 'price', 'was', 'sizes', 'colors', 'cover', 'desc', 'live', 'soldOut', 'soldSizes', 'createdAt', 'updatedAt', 'updatedBy'])
         && d.slug == slug
         && slug.matches('^[a-z0-9]+(-[a-z0-9]+)*$') && slug.size() <= 60
         && d.name is string && d.name.size() >= 1 && d.name.size() <= 80
@@ -23,6 +23,8 @@ service cloud.firestore {
         && d.cover is string && d.cover.size() <= 60000
         && d.desc is string && d.desc.size() <= 2000
         && d.live is bool
+        && (!d.keys().hasAny(['soldOut']) || d.soldOut is bool)
+        && (!d.keys().hasAny(['soldSizes']) || (d.soldSizes is list && d.soldSizes.size() <= 20))
         && d.createdAt is timestamp
         && d.updatedAt == request.time
         && d.updatedBy == myEmail();
@@ -139,8 +141,22 @@ service cloud.firestore {
         && request.resource.data.updatedBy == myEmail();
     }
 
+    match /settings/hero {
+      allow read: if true;
+      allow write: if canEditProducts()
+        && request.resource.data.keys().hasOnly(['mode', 'picks', 'intervalMs', 'updatedAt', 'updatedBy'])
+        && request.resource.data.mode in ['auto', 'manual']
+        && request.resource.data.picks is list
+        && request.resource.data.picks.size() <= 12
+        && request.resource.data.intervalMs is number
+        && request.resource.data.intervalMs >= 2500
+        && request.resource.data.intervalMs <= 20000
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == myEmail();
+    }
+
     match /settings/{id} {
-      allow read, write: if isStaff() && id != 'arrivals';
+      allow read, write: if isStaff() && !(id in ['arrivals', 'hero']);
     }
   }
 }

@@ -10,7 +10,7 @@ window.AVEIR_STORE = {
   "shipping": [
     { "id": "std",  "name": "STANDARD",  "eta": "4-7 BUSINESS DAYS", "price": 5 },
     { "id": "pri",  "name": "PRIORITY",  "eta": "2-3 BUSINESS DAYS", "price": 10 },
-    { "id": "over", "name": "OVERNIGHT", "eta": "NEXT BUSINESS DAY", "price": 15 }
+    { "id": "over", "name": "OVERNIGHT", "eta": "NEXT BUSINESS DAY", "price": 20 }
   ],
   "freeShippingOver": 100,
   "tax": { "CA": 0.0725, "default": 0.06 }
