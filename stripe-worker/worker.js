@@ -40,9 +40,12 @@ async function loadStore(env) {
   const m = text.match(/AVEIR_STORE\s*=\s*(\{[\s\S]*?\});/);
   if (!m) throw new Error('catalog unreadable');
   const store = JSON.parse(m[1]);
-  const taken = {};
-  (store.catalog || []).forEach(p => { p.kind = p.kind || 'tees'; taken[p.slug] = true; });
-  (await loadProducts(env)).forEach(p => { if (!taken[p.slug]) store.catalog.push(p); });
+  const cloud = await loadProducts(env);
+  const live = {};
+  cloud.forEach(p => { if (p.slug) live[p.slug] = true; });
+  store.catalog = (store.catalog || []).filter(p => !live[p.slug]);
+  store.catalog.forEach(p => { p.kind = p.kind || 'tees'; });
+  cloud.forEach(p => store.catalog.push(p));
   return store;
 }
 

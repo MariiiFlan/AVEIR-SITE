@@ -56,3 +56,16 @@
 .av-sizegrid label.is-out { border-color: #ff06bc; color: #ff06bc; text-decoration: line-through; }
 .av-sizegrid input { accent-color: #ff06bc; }
 .av-note-pad { padding: 10px 0 0; }
+
+.av-back {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 54px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #262626;
+}
+.av-back-thumb { opacity: 0.9; }
+.av-back-name { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.2em; color: #6b6b6b; }

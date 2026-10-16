@@ -148,7 +148,20 @@
   }
 
   function weight() {
-    return form.colors.reduce((a, c) => a + (form.images[c] || '').length, 0);
+    return form.colors.reduce((a, c) => a + (form.images[c] || '').length + (form.images[c + '-back'] || '').length, 0);
+  }
+
+  function backRow(c) {
+    const b = form.images[c + '-back'] || '';
+    return '<div class="av-back">' +
+      '<div class="av-color-thumb av-back-thumb">' + (b ? '<img src="' + esc(b) + '" alt="">' : '<span>NO BACK</span>') + '</div>' +
+      '<div><div class="av-color-name av-back-name">BACK</div>' +
+        '<div class="av-color-state">' + (b ? Math.round(b.length / 1024) + ' KB' : 'OPTIONAL') + '</div></div>' +
+      '<div class="av-color-actions">' +
+        '<button class="av-btn-ghost" type="button" data-upload="' + esc(c) + '-back">' + (b ? 'REPLACE' : 'ADD BACK') + '</button>' +
+        (b ? '<button class="av-btn-ghost av-btn-danger" type="button" data-dropback="' + esc(c) + '">X</button>' : '') +
+      '</div>' +
+    '</div>';
   }
 
   function renderColors() {
@@ -167,6 +180,8 @@
           '<button class="av-btn-ghost av-btn-danger" type="button" data-remove="' + esc(c) + '">X</button>' +
         '</div>' +
         '<input class="av-file" type="file" accept="image/png,image/jpeg,image/webp" data-file="' + esc(c) + '">' +
+        backRow(c) +
+        '<input class="av-file" type="file" accept="image/png,image/jpeg,image/webp" data-file="' + esc(c) + '-back">' +
       '</div>';
     }).join('') || '<div class="av-note">NO COLORS YET. ADD ONE BELOW, THEN UPLOAD ITS PHOTO.</div>';
     const used = weight();
@@ -178,7 +193,8 @@
       const m = await cloud.getProductImages(slug);
       if (!form || form.slug !== slug) return;
       form.images = m || {};
-      form.coverColor = Object.keys(form.images).find(c => form.thumbs.__saved && form.images[c]) || Object.keys(form.images)[0] || '';
+      const fronts = Object.keys(form.images).filter(c => !/-back$/.test(c));
+      form.coverColor = fronts.find(c => form.thumbs.__saved && form.images[c]) || fronts[0] || '';
       form.loading = false;
       renderColors();
     } catch (err) {
@@ -264,8 +280,10 @@
       const next = weight() - (form.images[color] || '').length + pair.full.length;
       if (next > MAX_DOC_BYTES) { if (state) state.textContent = 'TOO MANY PHOTOS'; note('THAT WOULD PUSH THIS LISTING OVER ITS PHOTO LIMIT. REMOVE A COLOR FIRST.', 'bad'); return; }
       form.images[color] = pair.full;
-      form.thumbs[color] = pair.thumb;
-      if (!form.coverColor || !form.images[form.coverColor]) form.coverColor = color;
+      if (!/-back$/.test(color)) {
+        form.thumbs[color] = pair.thumb;
+        if (!form.coverColor || !form.images[form.coverColor]) form.coverColor = color;
+      }
       renderColors();
       note('PHOTO READY. HIT SAVE WHEN YOU ARE DONE.', 'good');
     } catch (err) {
@@ -303,7 +321,7 @@
     $('saveBtn').disabled = true;
     note('SAVING...');
     const images = {};
-    form.colors.forEach(c => { if (form.images[c]) images[c] = form.images[c]; });
+    form.colors.forEach(c => { if (form.images[c]) images[c] = form.images[c]; if (form.images[c + '-back']) images[c + '-back'] = form.images[c + '-back']; });
     const coverColor = images[form.coverColor] ? form.coverColor : Object.keys(images)[0] || '';
     let cover = '';
     if (coverColor) {
@@ -416,12 +434,15 @@
     if (up) { const inp = document.querySelector('[data-file="' + up.dataset.upload + '"]'); if (inp) inp.click(); return; }
     const cv = e.target.closest('[data-cover]');
     if (cv) { form.coverColor = cv.dataset.cover; renderColors(); return; }
+    const db = e.target.closest('[data-dropback]');
+    if (db) { delete form.images[db.dataset.dropback + '-back']; renderColors(); return; }
     const rm = e.target.closest('[data-remove]');
     if (rm) {
       const c = rm.dataset.remove;
       form.colors = form.colors.filter(x => x !== c);
       if (form.coverColor === c) form.coverColor = '';
       delete form.images[c];
+      delete form.images[c + '-back'];
       delete form.thumbs[c];
       renderColors();
     }
