@@ -13,6 +13,7 @@ const WEBHOOK_TOLERANCE_SECONDS = 300;
 const STORE_TIMEZONE = 'America/Los_Angeles';
 const PRODUCTS_CACHE_MS = 30000;
 const PRODUCTS_LIMIT = 300;
+const STRIPE_RETRIES = 2;
 let googleToken = null;
 let productsCache = null;
 
@@ -78,16 +79,23 @@ async function loadProducts(env) {
   return items;
 }
 
-async function stripe(env, method, path, params) {
-  const r = await fetch('https://api.stripe.com/v1/' + path, {
-    method,
-    headers: {
-      'Authorization': 'Bearer ' + env.STRIPE_SECRET_KEY,
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: params ? params : undefined
-  });
-  return r.json();
+async function stripe(env, method, path, params, tries) {
+  const left = tries === undefined ? STRIPE_RETRIES : tries;
+  try {
+    const r = await fetch('https://api.stripe.com/v1/' + path, {
+      method,
+      headers: {
+        'Authorization': 'Bearer ' + env.STRIPE_SECRET_KEY,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params ? params : undefined
+    });
+    if (r.status >= 500 && left > 0) return stripe(env, method, path, params, left - 1);
+    return r.json();
+  } catch (e) {
+    if (left > 0) return stripe(env, method, path, params, left - 1);
+    throw e;
+  }
 }
 
 function b64url(bytes) {
@@ -375,8 +383,12 @@ export default {
     const origin = request.headers.get('Origin') || '';
     if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }), origin);
     if (origin && !ALLOWED_ORIGINS.includes(origin)) return json({ error: 'forbidden' }, 403, origin);
-    if (request.method === 'GET') return verifySession(url, env, origin);
-    if (request.method === 'POST') return createSession(request, env, origin);
+    try {
+      if (request.method === 'GET') return await verifySession(url, env, origin);
+      if (request.method === 'POST') return await createSession(request, env, origin);
+    } catch (e) {
+      return json({ error: 'payment server error, try again' }, 502, origin);
+    }
     return json({ error: 'method not allowed' }, 405, origin);
   }
 };
