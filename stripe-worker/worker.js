@@ -173,7 +173,7 @@ function countryCode(v) {
   return '';
 }
 
-async function createSession(request, env, origin) {
+async function createSession(request, env, origin, ctx) {
   let b;
   try { b = await request.json(); } catch (e) { return json({ error: 'bad request' }, 400, origin); }
   if (!Array.isArray(b.items) || !b.items.length || b.items.length > 30) return json({ error: 'no items' }, 400, origin);
@@ -239,7 +239,7 @@ async function createSession(request, env, origin) {
   const ship = ships.find(o => o.id === b.ship) || ships[0];
   if (!ship) return json({ error: 'no shipping' }, 400, origin);
   const freeOver = store.freeShippingOver ?? 100;
-  const shipC = (!owner && ship.id === 'std' && subC >= freeOver * 100) ? 0 : Math.round(ship.price * 100);
+  const shipC = (ship.id === 'std' && subC >= freeOver * 100) ? 0 : Math.round(ship.price * 100);
   const addr = b.address || {};
   const st = String(addr.state || '').trim().toUpperCase();
   const taxC = afterC > 0 ? TAX_FLAT : 0;
@@ -255,8 +255,9 @@ async function createSession(request, env, origin) {
   }
 
   const total = afterC + shipC + taxC;
-  if (total < STRIPE_MIN_TOTAL) return json({ error: 'order total is too small to charge' }, 400, origin);
   const name = String(b.name || '').slice(0, 100);
+  if (owner) return ownerOrder(env, ctx, origin, b, { name, addr, st, ship, shipC, lines, subC });
+  if (total < STRIPE_MIN_TOTAL) return json({ error: 'order total is too small to charge' }, 400, origin);
   const cc = countryCode(addr.country);
   const coverPct = STRIPE_PCT + (cc === 'US' ? 0 : STRIPE_INTL_PCT + STRIPE_FX_PCT);
   const feeC = Math.min(total, Math.round(total * (FEE_RATE + coverPct)) + STRIPE_FLAT);
@@ -283,7 +284,20 @@ async function createSession(request, env, origin) {
   if (j.error) return json({ error: j.error.message }, 400, origin);
 
   const when = new Date();
-  const order = {
+  const order = orderRecord(when, name, addr, st, ship, shipC, lines, subC, afterC, taxC, code, rate, promoCloud);
+  order.email = String(b.email || '').toLowerCase().slice(0, 200);
+  order.phone = String(b.phone || '-').slice(0, 30);
+  try {
+    const saved = await firestore(env, 'POST', 'orders?documentId=' + encodeURIComponent(j.id), { fields: toFields(order) });
+    if (!saved.ok) return json({ error: 'could not save order' }, 502, origin);
+  } catch (e) {
+    return json({ error: 'could not save order' }, 502, origin);
+  }
+  return json({ url: j.url }, 200, origin);
+}
+
+function orderRecord(when, name, addr, st, ship, shipC, lines, subC, afterC, taxC, code, rate, promoCloud) {
+  return {
     number: '#AVR-' + when.getTime().toString(36).toUpperCase().slice(-6),
     createdAt: when,
     placed: stamp(when),
@@ -297,15 +311,15 @@ async function createSession(request, env, origin) {
     state: st.slice(0, 20),
     zip: String(addr.postal_code || '').slice(0, 20),
     country: String(addr.country || '').toUpperCase().slice(0, 60),
-    email: String(b.email || '').toLowerCase().slice(0, 200),
-    phone: String(b.phone || '-').slice(0, 30),
+    email: '',
+    phone: '-',
     shipId: ship.id,
     shipMethod: ship.name + ' - ' + (shipC === 0 ? 'FREE' : '$' + (shipC / 100).toFixed(2)),
     tracking: 'NO TRACKING YET',
     payMethod: 'STRIPE',
     txn: '',
     items: lines,
-    total: total / 100,
+    total: (afterC + shipC + taxC) / 100,
     tax: taxC / 100,
     subtotal: subC / 100,
     discount: (subC - afterC) / 100,
@@ -315,17 +329,32 @@ async function createSession(request, env, origin) {
     promoCloud,
     receiptKey: randomKey()
   };
-  try {
-    const saved = await firestore(env, 'POST', 'orders?documentId=' + encodeURIComponent(j.id), { fields: toFields(order) });
-    if (!saved.ok) return json({ error: 'could not save order' }, 502, origin);
-  } catch (e) {
-    return json({ error: 'could not save order' }, 502, origin);
-  }
-  return json({ url: j.url }, 200, origin);
+}
+
+async function ownerOrder(env, ctx, origin, b, o) {
+  const when = new Date();
+  const id = 'own_' + randomKey().slice(0, 24);
+  const order = orderRecord(when, o.name, o.addr, o.st, o.ship, o.shipC, o.lines, o.subC, o.subC, TAX_FLAT, '', 0, false);
+  order.email = String(b.email || '').toLowerCase().slice(0, 200);
+  order.phone = String(b.phone || '-').slice(0, 30);
+  order.status = 'NEW';
+  order.txn = 'OWNER';
+  order.paidAt = when;
+  order.ownerOrder = true;
+  const saved = await firestore(env, 'POST', 'orders?documentId=' + encodeURIComponent(id), { fields: toFields(order) });
+  if (!saved.ok) return json({ error: 'could not save order' }, 502, origin);
+  const after = sendReceipt(env, id, order, workerBase(env)).catch(() => {});
+  if (ctx && ctx.waitUntil) ctx.waitUntil(after); else await after;
+  return json({ url: String(b.success_url).replace('{CHECKOUT_SESSION_ID}', id) }, 200, origin);
 }
 
 async function verifySession(url, env, origin, ctx) {
   const id = url.searchParams.get('session_id') || '';
+  if (/^own_[a-f0-9]{24}$/.test(id)) {
+    const doc = await getDoc(env, 'orders/' + id);
+    if (!doc || doc.data.ownerOrder !== true) return json({ paid: false }, 404, origin);
+    return json({ paid: true, total: Number(doc.data.total) || 0, number: doc.data.number || '', receiptUrl: doc.data.receiptKey ? receiptUrlFor(id, doc.data.receiptKey) : '' }, 200, origin);
+  }
   if (!/^cs_[A-Za-z0-9_]+$/.test(id)) return json({ paid: false }, 400, origin);
   const j = await stripe(env, 'GET', 'checkout/sessions/' + id);
   if (j.error) return json({ paid: false }, 404, origin);
@@ -342,7 +371,7 @@ async function verifySession(url, env, origin, ctx) {
 async function promoCheck(url, env, origin) {
   const code = cleanCode(url.searchParams.get('promo'));
   if (!code) return json({ rate: 0 }, 200, origin);
-  if (isOwnerCode(env, code)) return json({ rate: 1, code }, 200, origin);
+  if (isOwnerCode(env, code)) return json({ rate: 1, owner: true, code }, 200, origin);
   let store = null;
   try { store = await loadStore(env); } catch (e) {}
   const local = store && store.promos && store.promos[code];
@@ -419,8 +448,9 @@ export default {
       if (request.method === 'GET') return await verifySession(url, env, origin, ctx);
       if (request.method === 'POST' && url.pathname === '/join') return await joinRoute(request, env, origin);
       if (request.method === 'POST' && url.pathname === '/resend') return await resendReceipt(request, env, origin);
-      if (request.method === 'POST') return await createSession(request, env, origin);
+      if (request.method === 'POST') return await createSession(request, env, origin, ctx);
     } catch (e) {
+      if (env.DEBUG_ERRORS) console.log(e && e.stack);
       return json({ error: 'payment server error, try again' }, 502, origin);
     }
     return json({ error: 'method not allowed' }, 405, origin);
