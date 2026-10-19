@@ -1,6 +1,7 @@
 import { esc, money, wrap, footer, sendMail, SITE_URL, F_HEAD, F_MONO, INK, CREAM, PINK, MAGENTA, PLUM } from './mail.js';
 import { createPromo } from './promos.js';
 import { patchDoc } from './db.js';
+import { renderPdf, toBase64, pdfReady } from './pdf.js';
 
 export const TEMPLATES = ['archive', 'boarding', 'pass'];
 const DISCOUNT_CHANCE = 0.35;
@@ -227,6 +228,12 @@ export function renderReceipt(order, opts) {
   return { html: wrap(subject, body, preheader), text, subject, template };
 }
 
+export async function receiptPdf(env, order, opts) {
+  if (!pdfReady(env)) return null;
+  const r = renderReceipt(order, { template: opts.template, code: opts.code, rate: opts.rate, img: opts.img });
+  return renderPdf(env, r.html, (order.items || []).length);
+}
+
 export function receiptUrlFor(orderId, key) {
   return SITE_URL + RECEIPT_PATH + '?o=' + encodeURIComponent(orderId) + '&k=' + encodeURIComponent(key);
 }
@@ -255,10 +262,14 @@ export async function sendReceipt(env, orderId, order, workerBase) {
     result = { ok: false, error: 'no customer email' };
   } else {
     const r = renderReceipt(order, { template, code, rate, img: imgUrlFor(workerBase, orderId, key), receiptUrl: receiptUrlFor(orderId, key) });
-    result = await sendMail(env, { to, subject: r.subject, html: r.html, text: r.text, copy: true });
+    const pdf = await receiptPdf(env, order, { template, code, rate, img: imgUrlFor(workerBase, orderId, key) });
+    const attachments = pdf ? [{ filename: 'AVEIR-' + String(order.number || 'RECEIPT').replace(/^#/, '') + '.pdf', content: toBase64(pdf) }] : [];
+    result = await sendMail(env, { to, subject: r.subject, html: r.html, text: r.text, copy: true, attachments });
+    result.pdf = !!pdf;
   }
   patch.receipt = {
     template, code, rate,
+    pdf: result.pdf === true,
     status: result.ok ? 'SENT' : 'FAILED',
     sentAt: new Date(),
     id: result.id || '',

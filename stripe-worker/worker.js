@@ -1,6 +1,6 @@
 import { firestore, getDoc, fromDoc, toFields } from './db.js';
 import { lookupPromo, consumePromo, cleanCode, isOwnerCode } from './promos.js';
-import { sendReceipt, renderReceipt, imgUrlFor, receiptUrlFor, randomKey } from './receipts.js';
+import { sendReceipt, renderReceipt, receiptPdf, imgUrlFor, receiptUrlFor, randomKey } from './receipts.js';
 import { handleJoin } from './welcome.js';
 import { verifyStaff } from './staff.js';
 
@@ -393,7 +393,14 @@ async function receiptPage(url, env, origin) {
   const hit = await orderFor(url, env);
   if (!hit) return json({ error: 'receipt not found' }, 404, origin);
   const r = hit.order.receipt || {};
-  const out = renderReceipt(hit.order, { template: r.template || 'archive', code: r.code || '', rate: Number(r.rate) || 0, img: imgUrlFor(workerBase(env) || (url.origin), hit.id, hit.key), fragment: url.searchParams.get('format') === 'fragment' });
+  const img = imgUrlFor(workerBase(env) || (url.origin), hit.id, hit.key);
+  if (url.searchParams.get('format') === 'pdf') {
+    const pdf = await receiptPdf(env, hit.order, { template: r.template || 'archive', code: r.code || '', rate: Number(r.rate) || 0, img });
+    if (!pdf) return json({ error: 'pdf not available' }, 503, origin);
+    const fname = 'AVEIR-' + String(hit.order.number || 'RECEIPT').replace(/^#/, '') + '.pdf';
+    return cors(new Response(pdf, { status: 200, headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="' + fname + '"', 'Cache-Control': 'private, max-age=3600' } }), origin);
+  }
+  const out = renderReceipt(hit.order, { template: r.template || 'archive', code: r.code || '', rate: Number(r.rate) || 0, img, fragment: url.searchParams.get('format') === 'fragment' });
   return cors(new Response(out.html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, max-age=300' } }), origin);
 }
 

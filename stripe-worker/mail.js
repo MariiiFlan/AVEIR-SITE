@@ -54,6 +54,7 @@ export async function sendMail(env, msg) {
     text: msg.text
   };
   if (msg.copy && MAIL_COPY_TO && MAIL_COPY_TO.toLowerCase() !== String(msg.to).toLowerCase()) body.bcc = [MAIL_COPY_TO];
+  if (msg.attachments && msg.attachments.length) body.attachments = msg.attachments;
   try {
     const r = await fetch(RESEND_URL, {
       method: 'POST',

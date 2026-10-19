@@ -9,7 +9,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="../aveir-pay.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; background: #0a0a0a; color: #f2efe9; font-family: 'Space Mono', 'Courier New', monospace; }
@@ -33,14 +32,13 @@
 <div class="bar">
   <div class="brand">AVEIR STUDIOS</div>
   <div class="btns">
-    <button class="btn" id="dl">DOWNLOAD PNG</button>
+    <button class="btn" id="dl">DOWNLOAD PDF</button>
     <button class="btn ghost" id="pr">PRINT / PDF</button>
   </div>
 </div>
 <div class="stage"><div id="sheet"></div><div id="note">LOADING YOUR RECEIPT...</div></div>
 <script>
 window.AVEIR_RECEIPT = window.AVEIR_RECEIPT || (function () {
-  const DOWNLOAD_SCALE = 2;
   const q = new URLSearchParams(location.search);
   const worker = (window.AVEIR_PAY && window.AVEIR_PAY.worker) || '';
   const sheet = document.getElementById('sheet');
@@ -66,24 +64,21 @@ window.AVEIR_RECEIPT = window.AVEIR_RECEIPT || (function () {
       .catch(() => fail('RECEIPT NOT FOUND. CHECK THE LINK IN YOUR EMAIL.'));
   }
 
-  function waitImages() {
-    const imgs = Array.from(sheet.querySelectorAll('img'));
-    return Promise.all(imgs.map(im => (im.complete ? Promise.resolve() : new Promise(res => { im.onload = res; im.onerror = res; }))));
-  }
-
   function download() {
-    if (!sheet.firstChild || !window.html2canvas) return;
-    dl.disabled = true; dl.textContent = 'RENDERING...';
-    waitImages()
-      .then(() => html2canvas(sheet, { scale: DOWNLOAD_SCALE, useCORS: true, backgroundColor: '#0a0a0a' }))
-      .then(canvas => {
+    if (!sheet.firstChild) return;
+    const o = q.get('o'), k = q.get('k');
+    dl.disabled = true; dl.textContent = 'BUILDING PDF...';
+    fetch(worker + '/receipt?o=' + encodeURIComponent(o) + '&k=' + encodeURIComponent(k) + '&format=pdf')
+      .then(r => { if (!r.ok) throw new Error('nopdf'); return r.blob(); })
+      .then(blob => {
         const a = document.createElement('a');
-        a.download = 'AVEIR-' + number + '.png';
-        a.href = canvas.toDataURL('image/png');
+        a.download = 'AVEIR-' + number + '.pdf';
+        a.href = URL.createObjectURL(blob);
         a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 60000);
       })
-      .catch(() => alert('COULD NOT RENDER THE IMAGE. USE PRINT / PDF INSTEAD.'))
-      .then(() => { dl.disabled = false; dl.textContent = 'DOWNLOAD PNG'; });
+      .catch(() => { alert('PDF IS NOT AVAILABLE RIGHT NOW. USE PRINT / PDF INSTEAD.'); })
+      .then(() => { dl.disabled = false; dl.textContent = 'DOWNLOAD PDF'; });
   }
 
   dl.addEventListener('click', download);
