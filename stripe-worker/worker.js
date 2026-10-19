@@ -1,9 +1,16 @@
+import { firestore, getDoc, fromDoc, toFields } from './db.js';
+import { lookupPromo, consumePromo, cleanCode, isOwnerCode } from './promos.js';
+import { sendReceipt, renderReceipt, imgUrlFor, receiptUrlFor, randomKey } from './receipts.js';
+import { handleJoin } from './welcome.js';
+import { verifyStaff } from './staff.js';
+
 const FEE_RATE = 0.05;
 const STRIPE_PCT = 0.029;
 const STRIPE_FLAT = 30;
 const STRIPE_INTL_PCT = 0.015;
 const STRIPE_FX_PCT = 0.01;
 const TAX_FLAT = 100;
+const STRIPE_MIN_TOTAL = 50;
 const DEFAULT_STORE_URL = 'https://aveir.us';
 const ALLOWED_ORIGINS = ['https://aveir.us', 'https://www.aveir.us', 'https://mariiiflan.github.io'];
 const SIZES = ['S', 'M', 'L', 'XL', '2XL'];
@@ -14,7 +21,7 @@ const STORE_TIMEZONE = 'America/Los_Angeles';
 const PRODUCTS_CACHE_MS = 30000;
 const PRODUCTS_LIMIT = 300;
 const STRIPE_RETRIES = 2;
-let googleToken = null;
+const IMG_CACHE_SECONDS = 86400;
 let productsCache = null;
 
 function originOf(url) {
@@ -56,9 +63,7 @@ async function loadProducts(env) {
   const r = await firestore(env, 'POST', ':runQuery', q);
   if (!r.ok || !Array.isArray(r.body)) throw new Error('products unavailable');
   const items = r.body.filter(x => x.document).map(x => {
-    const f = x.document.fields || {};
-    const d = {};
-    for (const k in f) d[k] = fromValue(f[k]);
+    const d = fromDoc(x.document);
     const price = Number(d.price) || 0;
     const was = Number(d.was) || 0;
     return {
@@ -98,78 +103,6 @@ async function stripe(env, method, path, params, tries) {
   }
 }
 
-function b64url(bytes) {
-  let bin = '';
-  const arr = bytes instanceof Uint8Array ? bytes : new TextEncoder().encode(bytes);
-  for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function serviceAccount(env) {
-  if (!env.FIREBASE_SERVICE_ACCOUNT) throw new Error('firebase not configured');
-  return JSON.parse(env.FIREBASE_SERVICE_ACCOUNT);
-}
-
-async function accessToken(env) {
-  if (googleToken && googleToken.exp > Date.now() + 60000) return googleToken.value;
-  const sa = serviceAccount(env);
-  const iat = Math.floor(Date.now() / 1000);
-  const head = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claim = b64url(JSON.stringify({ iss: sa.client_email, scope: 'https://www.googleapis.com/auth/datastore', aud: 'https://oauth2.googleapis.com/token', iat, exp: iat + 3600 }));
-  const pem = sa.private_key.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
-  const der = Uint8Array.from(atob(pem), c => c.charCodeAt(0));
-  const key = await crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
-  const sig = new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(head + '.' + claim)));
-  const r = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: head + '.' + claim + '.' + b64url(sig) })
-  });
-  const j = await r.json();
-  if (!j.access_token) throw new Error('google auth failed');
-  googleToken = { value: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 };
-  return googleToken.value;
-}
-
-function toValue(v) {
-  if (v === null || v === undefined) return { nullValue: null };
-  if (v instanceof Date) return { timestampValue: v.toISOString() };
-  if (Array.isArray(v)) return { arrayValue: { values: v.map(toValue) } };
-  if (typeof v === 'boolean') return { booleanValue: v };
-  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
-  if (typeof v === 'object') return { mapValue: { fields: toFields(v) } };
-  return { stringValue: String(v) };
-}
-
-function toFields(obj) {
-  const out = {};
-  for (const k in obj) out[k] = toValue(obj[k]);
-  return out;
-}
-
-function fromValue(v) {
-  if ('stringValue' in v) return v.stringValue;
-  if ('integerValue' in v) return Number(v.integerValue);
-  if ('doubleValue' in v) return v.doubleValue;
-  if ('booleanValue' in v) return v.booleanValue;
-  if ('timestampValue' in v) return v.timestampValue;
-  if ('mapValue' in v) { const o = {}; const f = v.mapValue.fields || {}; for (const k in f) o[k] = fromValue(f[k]); return o; }
-  if ('arrayValue' in v) return (v.arrayValue.values || []).map(fromValue);
-  return null;
-}
-
-async function firestore(env, method, path, body) {
-  const sa = serviceAccount(env);
-  const base = 'https://firestore.googleapis.com/v1/projects/' + sa.project_id + '/databases/(default)/documents';
-  const r = await fetch(base + (path.charAt(0) === ':' ? '' : '/') + path, {
-    method,
-    headers: { 'Authorization': 'Bearer ' + await accessToken(env), 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined
-  });
-  const j = await r.json().catch(() => ({}));
-  return { ok: r.ok, status: r.status, body: j };
-}
-
 function stamp(d) {
   const p = {};
   new Intl.DateTimeFormat('en-US', { timeZone: STORE_TIMEZONE, year: 'numeric', month: 'numeric', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
@@ -177,18 +110,29 @@ function stamp(d) {
   return MONTHS[Number(p.month) - 1] + ' ' + p.day + ', ' + p.year + ' - ' + p.hour + ':' + p.minute;
 }
 
-async function markPaid(env, sessionId, paymentId, amountTotal) {
-  const got = await firestore(env, 'GET', 'orders/' + sessionId);
-  if (!got.ok) return null;
-  const fields = got.body.fields || {};
-  const number = fields.number ? fromValue(fields.number) : '';
-  if (fromValue(fields.status || { stringValue: '' }) !== 'PENDING') return number;
+async function markPaid(env, sessionId, paymentId, amountTotal, ctx) {
+  const got = await getDoc(env, 'orders/' + sessionId);
+  if (!got) return null;
+  const order = got.data;
+  const number = order.number || '';
+  if (order.status !== 'PENDING') return number;
   const patch = { status: 'NEW', txn: paymentId || sessionId, total: amountTotal / 100, paidAt: new Date() };
   const done = await firestore(env, 'POST', ':commit', {
-    writes: [{ update: { name: got.body.name, fields: toFields(patch) }, updateMask: { fieldPaths: Object.keys(patch) }, currentDocument: { updateTime: got.body.updateTime } }]
+    writes: [{ update: { name: got.name, fields: toFields(patch) }, updateMask: { fieldPaths: Object.keys(patch) }, currentDocument: { updateTime: got.updateTime } }]
   });
   if (!done.ok && done.status !== 400 && done.status !== 409) throw new Error('could not mark paid');
+  if (!done.ok) return number;
+  Object.assign(order, patch);
+  const after = (async () => {
+    if (order.promoCloud === true && order.promo) { try { await consumePromo(env, order.promo, number); } catch (e) {} }
+    try { await sendReceipt(env, sessionId, order, workerBase(env)); } catch (e) {}
+  })();
+  if (ctx && ctx.waitUntil) ctx.waitUntil(after); else await after;
   return number;
+}
+
+function workerBase(env) {
+  return (env.WORKER_URL || '').replace(/\/$/, '');
 }
 
 async function hmacHex(secret, text) {
@@ -204,7 +148,7 @@ function safeEqual(a, b) {
   return diff === 0;
 }
 
-async function handleWebhook(request, env) {
+async function handleWebhook(request, env, ctx) {
   if (!env.STRIPE_WEBHOOK_SECRET) return new Response('webhook not configured', { status: 500 });
   const raw = await request.text();
   const header = request.headers.get('Stripe-Signature') || '';
@@ -217,7 +161,7 @@ async function handleWebhook(request, env) {
   const event = JSON.parse(raw);
   const obj = event.data && event.data.object;
   if (obj && (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && obj.payment_status === 'paid') {
-    await markPaid(env, obj.id, obj.payment_intent, obj.amount_total || 0);
+    await markPaid(env, obj.id, obj.payment_intent, obj.amount_total || 0, ctx);
   }
   return new Response('ok');
 }
@@ -241,8 +185,18 @@ async function createSession(request, env, origin) {
   const bySlug = {};
   (store.catalog || []).forEach(p => { bySlug[p.slug] = p; });
   const promos = store.promos || {};
-  const code = String(b.promo || '').trim().toUpperCase();
-  const rate = promos[code] || 0;
+  const code = cleanCode(b.promo);
+  let rate = (code && promos[code]) || 0;
+  let owner = false;
+  let promoCloud = false;
+  if (code && !rate) {
+    if (isOwnerCode(env, code)) { rate = 1; owner = true; }
+    else {
+      const found = await lookupPromo(env, code);
+      if (found) { rate = found.rate; promoCloud = true; }
+    }
+  }
+  if (code && !rate) return json({ error: 'that code is not valid anymore' }, 400, origin);
 
   const p = new URLSearchParams();
   p.set('mode', 'payment');
@@ -273,7 +227,7 @@ async function createSession(request, env, origin) {
     const label = prod.name + (size || color ? ' (' + [size, color.toUpperCase()].filter(Boolean).join(' / ') + ')' : '');
     summary.push(label + ' x' + qty);
     const img = prod.cloud ? (prod.cover || '') : (color ? '../tees/' + prod.slug + '/' + color + '.png' : '');
-    lines.push({ name: prod.name, variant: [size ? 'SIZE ' + size : '', color.toUpperCase()].filter(Boolean).join(' / '), qty: 'x' + qty, img });
+    lines.push({ name: prod.name, variant: [size ? 'SIZE ' + size : '', color.toUpperCase()].filter(Boolean).join(' / '), qty: 'x' + qty, img, slug: prod.slug, size, color: color.toUpperCase(), unit: prod.price, n: qty });
     p.set(`line_items[${i}][quantity]`, String(qty));
     p.set(`line_items[${i}][price_data][currency]`, 'usd');
     p.set(`line_items[${i}][price_data][unit_amount]`, String(unitAfter));
@@ -285,7 +239,7 @@ async function createSession(request, env, origin) {
   const ship = ships.find(o => o.id === b.ship) || ships[0];
   if (!ship) return json({ error: 'no shipping' }, 400, origin);
   const freeOver = store.freeShippingOver ?? 100;
-  const shipC = (ship.id === 'std' && subC >= freeOver * 100) ? 0 : Math.round(ship.price * 100);
+  const shipC = (!owner && ship.id === 'std' && subC >= freeOver * 100) ? 0 : Math.round(ship.price * 100);
   const addr = b.address || {};
   const st = String(addr.state || '').trim().toUpperCase();
   const taxC = afterC > 0 ? TAX_FLAT : 0;
@@ -301,6 +255,7 @@ async function createSession(request, env, origin) {
   }
 
   const total = afterC + shipC + taxC;
+  if (total < STRIPE_MIN_TOTAL) return json({ error: 'order total is too small to charge' }, 400, origin);
   const name = String(b.name || '').slice(0, 100);
   const cc = countryCode(addr.country);
   const coverPct = STRIPE_PCT + (cc === 'US' ? 0 : STRIPE_INTL_PCT + STRIPE_FX_PCT);
@@ -352,7 +307,13 @@ async function createSession(request, env, origin) {
     items: lines,
     total: total / 100,
     tax: taxC / 100,
-    promo: code && rate ? code : ''
+    subtotal: subC / 100,
+    discount: (subC - afterC) / 100,
+    shipCost: shipC / 100,
+    promo: code && rate ? code : '',
+    promoRate: rate,
+    promoCloud,
+    receiptKey: randomKey()
   };
   try {
     const saved = await firestore(env, 'POST', 'orders?documentId=' + encodeURIComponent(j.id), { fields: toFields(order) });
@@ -363,28 +324,101 @@ async function createSession(request, env, origin) {
   return json({ url: j.url }, 200, origin);
 }
 
-async function verifySession(url, env, origin) {
+async function verifySession(url, env, origin, ctx) {
   const id = url.searchParams.get('session_id') || '';
   if (!/^cs_[A-Za-z0-9_]+$/.test(id)) return json({ paid: false }, 400, origin);
   const j = await stripe(env, 'GET', 'checkout/sessions/' + id);
   if (j.error) return json({ paid: false }, 404, origin);
   const paid = j.payment_status === 'paid';
   let number = '';
+  let receiptUrl = '';
   if (paid) {
-    try { number = await markPaid(env, id, j.payment_intent, j.amount_total || 0) || ''; } catch (e) {}
+    try { number = await markPaid(env, id, j.payment_intent, j.amount_total || 0, ctx) || ''; } catch (e) {}
+    try { const doc = await getDoc(env, 'orders/' + id); if (doc && doc.data.receiptKey) receiptUrl = receiptUrlFor(id, doc.data.receiptKey); } catch (e) {}
   }
-  return json({ paid, total: (j.amount_total || 0) / 100, number }, 200, origin);
+  return json({ paid, total: (j.amount_total || 0) / 100, number, receiptUrl }, 200, origin);
+}
+
+async function promoCheck(url, env, origin) {
+  const code = cleanCode(url.searchParams.get('promo'));
+  if (!code) return json({ rate: 0 }, 200, origin);
+  if (isOwnerCode(env, code)) return json({ rate: 1, code }, 200, origin);
+  let store = null;
+  try { store = await loadStore(env); } catch (e) {}
+  const local = store && store.promos && store.promos[code];
+  if (local) return json({ rate: local, code }, 200, origin);
+  const found = await lookupPromo(env, code);
+  return json({ rate: found ? found.rate : 0, code }, 200, origin);
+}
+
+async function orderFor(url, env) {
+  const id = String(url.searchParams.get('o') || '');
+  const key = String(url.searchParams.get('k') || '');
+  if (!/^[A-Za-z0-9_-]{6,200}$/.test(id) || !/^[a-f0-9]{24,64}$/.test(key)) return null;
+  const doc = await getDoc(env, 'orders/' + encodeURIComponent(id));
+  if (!doc || doc.data.receiptKey !== key) return null;
+  return { id, key, order: doc.data };
+}
+
+async function receiptPage(url, env, origin) {
+  const hit = await orderFor(url, env);
+  if (!hit) return json({ error: 'receipt not found' }, 404, origin);
+  const r = hit.order.receipt || {};
+  const out = renderReceipt(hit.order, { template: r.template || 'archive', code: r.code || '', rate: Number(r.rate) || 0, img: imgUrlFor(workerBase(env) || (url.origin), hit.id, hit.key), fragment: url.searchParams.get('format') === 'fragment' });
+  return cors(new Response(out.html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, max-age=300' } }), origin);
+}
+
+async function itemImage(url, env, origin) {
+  const hit = await orderFor(url, env);
+  if (!hit) return new Response('not found', { status: 404 });
+  const i = Number(url.searchParams.get('i'));
+  const it = (hit.order.items || [])[i];
+  const src = it ? String(it.img || '') : '';
+  if (!src) return new Response('not found', { status: 404 });
+  const m = src.match(/^data:([a-z]+\/[a-z0-9.+-]+);base64,(.*)$/i);
+  if (m) {
+    const bytes = Uint8Array.from(atob(m[2]), c => c.charCodeAt(0));
+    return new Response(bytes, { status: 200, headers: { 'Content-Type': m[1], 'Cache-Control': 'public, max-age=' + IMG_CACHE_SECONDS, 'Access-Control-Allow-Origin': '*' } });
+  }
+  const base = env.STORE_URL || DEFAULT_STORE_URL;
+  const target = /^https?:/i.test(src) ? src : base + '/' + src.replace(/^(\.\.\/|\.\/|\/)+/, '');
+  return Response.redirect(target, 302);
+}
+
+async function resendReceipt(request, env, origin) {
+  let b;
+  try { b = await request.json(); } catch (e) { return json({ error: 'bad request' }, 400, origin); }
+  const who = await verifyStaff(env, b.token);
+  if (!who) return json({ error: 'not staff' }, 403, origin);
+  const id = String(b.order || '');
+  if (!/^[A-Za-z0-9_-]{6,200}$/.test(id)) return json({ error: 'bad order' }, 400, origin);
+  const doc = await getDoc(env, 'orders/' + encodeURIComponent(id));
+  if (!doc) return json({ error: 'order not found' }, 404, origin);
+  const receipt = await sendReceipt(env, id, doc.data, workerBase(env) || new URL(request.url).origin);
+  return json({ receipt }, 200, origin);
+}
+
+async function joinRoute(request, env, origin) {
+  let b;
+  try { b = await request.json(); } catch (e) { return json({ error: 'bad request' }, 400, origin); }
+  const out = await handleJoin(env, b.email, b.source);
+  return json(out, out.ok ? 200 : 400, origin);
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    if (request.method === 'POST' && url.pathname === '/webhook') return handleWebhook(request, env);
+    if (request.method === 'POST' && url.pathname === '/webhook') return handleWebhook(request, env, ctx);
     const origin = request.headers.get('Origin') || '';
     if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }), origin);
     if (origin && !ALLOWED_ORIGINS.includes(origin)) return json({ error: 'forbidden' }, 403, origin);
     try {
-      if (request.method === 'GET') return await verifySession(url, env, origin);
+      if (request.method === 'GET' && url.pathname === '/img') return await itemImage(url, env, origin);
+      if (request.method === 'GET' && url.pathname === '/receipt') return await receiptPage(url, env, origin);
+      if (request.method === 'GET' && url.searchParams.has('promo')) return await promoCheck(url, env, origin);
+      if (request.method === 'GET') return await verifySession(url, env, origin, ctx);
+      if (request.method === 'POST' && url.pathname === '/join') return await joinRoute(request, env, origin);
+      if (request.method === 'POST' && url.pathname === '/resend') return await resendReceipt(request, env, origin);
       if (request.method === 'POST') return await createSession(request, env, origin);
     } catch (e) {
       return json({ error: 'payment server error, try again' }, 502, origin);

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>AVEIR RECEIPT</title>
+<link rel="icon" type="image/png" href="../favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="../aveir-pay.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0a0a0a; color: #f2efe9; font-family: 'Space Mono', 'Courier New', monospace; }
+  table { border-collapse: collapse; }
+  img { border: 0; display: block; }
+  a { text-decoration: none; }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 16px; max-width: 640px; margin: 0 auto; flex-wrap: wrap; }
+  .brand { font-family: 'Anton', 'Impact', sans-serif; font-size: 22px; letter-spacing: 0.04em; color: #f2efe9; }
+  .btns { display: flex; gap: 8px; }
+  .btn { background: #ff06bc; color: #140a11; border: 1px solid #ff06bc; font: 700 10px 'Space Mono', monospace; letter-spacing: 0.18em; padding: 12px 16px; cursor: pointer; }
+  .btn.ghost { background: transparent; color: #f2efe9; border-color: #2c2c2c; }
+  .btn[disabled] { opacity: 0.5; cursor: wait; }
+  .stage { padding: 0 12px 60px; }
+  #sheet { width: 600px; max-width: 100%; margin: 0 auto; }
+  #note { text-align: center; font-size: 10px; letter-spacing: 0.2em; color: #7a7a7a; padding: 60px 16px; line-height: 2; }
+  @media (max-width: 620px) { .stack { display: block !important; width: 100% !important; } }
+  @media print { body { background: #fff; } .bar, #note { display: none; } .stage { padding: 0; } }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="brand">AVEIR STUDIOS</div>
+  <div class="btns">
+    <button class="btn" id="dl">DOWNLOAD PNG</button>
+    <button class="btn ghost" id="pr">PRINT / PDF</button>
+  </div>
+</div>
+<div class="stage"><div id="sheet"></div><div id="note">LOADING YOUR RECEIPT...</div></div>
+<script>
+window.AVEIR_RECEIPT = window.AVEIR_RECEIPT || (function () {
+  const DOWNLOAD_SCALE = 2;
+  const q = new URLSearchParams(location.search);
+  const worker = (window.AVEIR_PAY && window.AVEIR_PAY.worker) || '';
+  const sheet = document.getElementById('sheet');
+  const note = document.getElementById('note');
+  const dl = document.getElementById('dl');
+  const pr = document.getElementById('pr');
+  let number = 'receipt';
+
+  function fail(msg) { sheet.innerHTML = ''; note.textContent = msg; note.style.display = 'block'; }
+
+  function load() {
+    const o = q.get('o'), k = q.get('k');
+    if (!o || !k || !worker) { fail('THIS RECEIPT LINK IS MISSING SOMETHING. OPEN IT FROM YOUR EMAIL.'); return; }
+    fetch(worker + '/receipt?o=' + encodeURIComponent(o) + '&k=' + encodeURIComponent(k) + '&format=fragment')
+      .then(r => { if (!r.ok) throw new Error('nf'); return r.text(); })
+      .then(html => {
+        sheet.innerHTML = html;
+        note.style.display = 'none';
+        const t = sheet.querySelector('[data-number]');
+        if (t && t.getAttribute('data-number')) number = t.getAttribute('data-number');
+        document.title = 'AVEIR RECEIPT ' + number;
+      })
+      .catch(() => fail('RECEIPT NOT FOUND. CHECK THE LINK IN YOUR EMAIL.'));
+  }
+
+  function waitImages() {
+    const imgs = Array.from(sheet.querySelectorAll('img'));
+    return Promise.all(imgs.map(im => (im.complete ? Promise.resolve() : new Promise(res => { im.onload = res; im.onerror = res; }))));
+  }
+
+  function download() {
+    if (!sheet.firstChild || !window.html2canvas) return;
+    dl.disabled = true; dl.textContent = 'RENDERING...';
+    waitImages()
+      .then(() => html2canvas(sheet, { scale: DOWNLOAD_SCALE, useCORS: true, backgroundColor: '#0a0a0a' }))
+      .then(canvas => {
+        const a = document.createElement('a');
+        a.download = 'AVEIR-' + number + '.png';
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+      })
+      .catch(() => alert('COULD NOT RENDER THE IMAGE. USE PRINT / PDF INSTEAD.'))
+      .then(() => { dl.disabled = false; dl.textContent = 'DOWNLOAD PNG'; });
+  }
+
+  dl.addEventListener('click', download);
+  pr.addEventListener('click', () => window.print());
+  load();
+  return { load, download };
+})();
+</script>
+</body>
+</html>

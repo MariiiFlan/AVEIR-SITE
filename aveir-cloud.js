@@ -10,6 +10,7 @@ window.AVEIR_CLOUD = window.AVEIR_CLOUD || (function () {
   const AVEIR_FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.14.1/';
   const AVEIR_ORDER_LIMIT = 500;
   const AVEIR_ROLES = ['admin', 'owner'];
+  const AVEIR_WORKER_URL = 'https://pay.aveir.us';
 
   const cfg = AVEIR_FIREBASE_CONFIG;
   const configured = !!(cfg.apiKey && cfg.projectId);
@@ -113,9 +114,18 @@ window.AVEIR_CLOUD = window.AVEIR_CLOUD || (function () {
     addSubscriber(email, source) {
       const e = cleanEmail(email);
       if (!configured || !validEmail(e)) return Promise.resolve(false);
-      return boot()
-        .then(ctx => ctx.db.collection('subscribers').doc(e).set({ email: e, joined: day(), ts: Date.now(), source: String(source || 'site').slice(0, 30) }))
+      const src = String(source || 'site').slice(0, 30);
+      const worker = (window.AVEIR_PAY && window.AVEIR_PAY.worker) || AVEIR_WORKER_URL;
+      const viaWorker = fetch(worker + '/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: e, source: src }) })
+        .then(r => r.ok, () => false);
+      const direct = boot()
+        .then(ctx => ctx.db.collection('subscribers').doc(e).set({ email: e, joined: day(), ts: Date.now(), source: src }))
         .then(() => true, () => false);
+      return Promise.all([viaWorker, direct]).then(r => r[0] || r[1]);
+    },
+
+    idToken() {
+      return boot().then(ctx => (ctx.auth.currentUser ? ctx.auth.currentUser.getIdToken() : ''));
     },
 
     addSms(phone, source) {

@@ -108,6 +108,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /promos/{code} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
     match /subscribers/{email} {
       allow create: if request.resource.data.keys().hasOnly(['email', 'joined', 'ts', 'source'])
         && request.resource.data.email == email
