@@ -3,6 +3,7 @@ import { lookupPromo, consumePromo, cleanCode, isOwnerCode } from './promos.js';
 import { sendReceipt, renderReceipt, receiptPdf, imgUrlFor, receiptUrlFor, randomKey } from './receipts.js';
 import { handleJoin } from './welcome.js';
 import { verifyStaff } from './staff.js';
+import { handleLabel } from './labels.js';
 
 const FEE_RATE = 0.05;
 const STRIPE_PCT = 0.029;
@@ -166,6 +167,21 @@ async function handleWebhook(request, env, ctx) {
   return new Response('ok');
 }
 
+function isNear(store, cc, st) {
+  if (cc !== 'US') return false;
+  const near = store.nearStates || {};
+  const s = String(st || '').trim().toUpperCase();
+  if (!s) return true;
+  return Object.keys(near).some(code => code === s || String(near[code]).toUpperCase() === s);
+}
+
+function shipPriceCents(store, ship, cc, st, subC) {
+  const freeOver = store.freeShippingOver ?? 100;
+  if (ship.id === 'std' && freeOver > 0 && subC >= freeOver * 100) return 0;
+  const price = isNear(store, cc, st) ? ship.price : (ship.farPrice ?? ship.price);
+  return Math.round(price * 100);
+}
+
 function countryCode(v) {
   const c = String(v || '').trim().toUpperCase();
   if (!c || ['US', 'USA', 'UNITED STATES', 'UNITED STATES OF AMERICA'].includes(c)) return 'US';
@@ -238,10 +254,9 @@ async function createSession(request, env, origin, ctx) {
   const ships = store.shipping || [];
   const ship = ships.find(o => o.id === b.ship) || ships[0];
   if (!ship) return json({ error: 'no shipping' }, 400, origin);
-  const freeOver = store.freeShippingOver ?? 100;
-  const shipC = (ship.id === 'std' && subC >= freeOver * 100) ? 0 : Math.round(ship.price * 100);
   const addr = b.address || {};
   const st = String(addr.state || '').trim().toUpperCase();
+  const shipC = shipPriceCents(store, ship, countryCode(addr.country), st, subC);
   const taxC = afterC > 0 ? TAX_FLAT : 0;
 
   for (const extra of [['SHIPPING - ' + ship.name, shipC], ['SALES TAX', taxC]]) {
@@ -434,6 +449,15 @@ async function resendReceipt(request, env, origin) {
   return json({ receipt }, 200, origin);
 }
 
+async function labelRoute(request, env, origin) {
+  let b;
+  try { b = await request.json(); } catch (e) { return json({ error: 'bad request' }, 400, origin); }
+  const kindBySlug = {};
+  try { (await loadProducts(env)).forEach(p => { kindBySlug[p.slug] = p.kind; }); } catch (e) {}
+  const out = await handleLabel(env, b, kindBySlug);
+  return json(out.body, out.status, origin);
+}
+
 async function joinRoute(request, env, origin) {
   let b;
   try { b = await request.json(); } catch (e) { return json({ error: 'bad request' }, 400, origin); }
@@ -455,9 +479,9 @@ export default {
       if (request.method === 'GET') return await verifySession(url, env, origin, ctx);
       if (request.method === 'POST' && url.pathname === '/join') return await joinRoute(request, env, origin);
       if (request.method === 'POST' && url.pathname === '/resend') return await resendReceipt(request, env, origin);
+      if (request.method === 'POST' && url.pathname === '/label') return await labelRoute(request, env, origin);
       if (request.method === 'POST') return await createSession(request, env, origin, ctx);
     } catch (e) {
-      if (env.DEBUG_ERRORS) console.log(e && e.stack);
       return json({ error: 'payment server error, try again' }, 502, origin);
     }
     return json({ error: 'method not allowed' }, 405, origin);

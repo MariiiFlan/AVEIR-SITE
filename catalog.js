@@ -3,9 +3,10 @@ window.AVEIR_STORE = {
   "colors": ["black", "white", "red", "cream", "grey", "gray", "blue", "navy", "green", "pink", "purple", "brown", "orange", "yellow"],
   "promos": { "WEIRD10": 0.10, "AVEIRCULTURE": 0.15 },
   "shipping": [
-    { "id": "std",  "name": "STANDARD",  "eta": "1-2 WEEKS",          "price": 5 },
-    { "id": "pri",  "name": "PRIORITY",  "eta": "2-5 BUSINESS DAYS", "price": 10 }
+    { "id": "std",  "name": "STANDARD",  "eta": "1-2 WEEKS",          "price": 7,  "farPrice": 10 },
+    { "id": "pri",  "name": "PRIORITY",  "eta": "2-5 BUSINESS DAYS", "price": 13, "farPrice": 15 }
   ],
+  "nearStates": { "CA": "CALIFORNIA", "NV": "NEVADA", "AZ": "ARIZONA", "OR": "OREGON", "WA": "WASHINGTON", "UT": "UTAH", "ID": "IDAHO", "NM": "NEW MEXICO" },
   "freeShippingOver": 100,
   "tax": { "CA": 0.0725, "default": 0.06 }
 };
