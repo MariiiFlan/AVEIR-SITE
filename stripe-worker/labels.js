@@ -16,7 +16,7 @@ const BUY_LOCK_MS = 90000;
 function shipFrom(env) {
   if (!env.SHIP_FROM) throw new Error('SHIP_FROM not set');
   const a = JSON.parse(env.SHIP_FROM);
-  return { name: a.name, company: a.company || 'AVEIR STUDIOS', street1: a.street1, street2: a.street2 || '', city: a.city, state: a.state, zip: a.zip, country: 'US', phone: a.phone || '', email: a.email || '' };
+  return withPhone({ name: a.name, company: a.company || 'AVEIR STUDIOS', street1: a.street1, street2: a.street2 || '', city: a.city, state: a.state, zip: a.zip, country: 'US', email: a.email || '' }, a.phone);
 }
 
 async function shippo(env, method, path, body) {
@@ -28,6 +28,17 @@ async function shippo(env, method, path, body) {
   });
   const j = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, body: j };
+}
+
+function phoneDigits(v) {
+  const d = String(v || '').replace(/\D/g, '');
+  return d.length >= 8 && d.length <= 15 ? d : '';
+}
+
+function withPhone(addr, v) {
+  const d = phoneDigits(v);
+  if (d) addr.phone = d; else delete addr.phone;
+  return addr;
 }
 
 function usCountry(v) {
@@ -42,7 +53,7 @@ function addressTo(o) {
     street1 = o.line1 || '';
     if (m) { city = m[1].trim(); state = m[2]; zip = m[3].trim(); }
   }
-  return { name: o.name || '', street1, street2, city, state, zip, country: 'US', email: o.email || '', phone: o.phone && o.phone !== '-' ? o.phone : '' };
+  return withPhone({ name: o.name || '', street1, street2, city, state, zip, country: 'US', email: o.email || '' }, o.phone);
 }
 
 function ounces(o, kindBySlug) {
