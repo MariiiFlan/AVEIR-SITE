@@ -3,7 +3,7 @@ import { lookupPromo, consumePromo, cleanCode, isOwnerCode } from './promos.js';
 import { sendReceipt, renderReceipt, receiptPdf, imgUrlFor, receiptUrlFor, randomKey } from './receipts.js';
 import { handleJoin } from './welcome.js';
 import { verifyStaff } from './staff.js';
-import { handleLabel } from './labels.js';
+import { handleLabel, handleLabelFile } from './labels.js';
 
 const FEE_RATE = 0.05;
 const STRIPE_PCT = 0.029;
@@ -458,6 +458,14 @@ async function labelRoute(request, env, origin) {
   return json(out.body, out.status, origin);
 }
 
+async function labelFileRoute(request, env, origin) {
+  let b;
+  try { b = await request.json(); } catch (e) { return json({ error: 'bad request' }, 400, origin); }
+  const out = await handleLabelFile(env, b);
+  if (!out.bytes) return json({ error: out.error }, out.status, origin);
+  return cors(new Response(out.bytes, { status: 200, headers: { 'Content-Type': 'application/pdf', 'Cache-Control': 'private, no-store' } }), origin);
+}
+
 async function joinRoute(request, env, origin) {
   let b;
   try { b = await request.json(); } catch (e) { return json({ error: 'bad request' }, 400, origin); }
@@ -480,6 +488,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/join') return await joinRoute(request, env, origin);
       if (request.method === 'POST' && url.pathname === '/resend') return await resendReceipt(request, env, origin);
       if (request.method === 'POST' && url.pathname === '/label') return await labelRoute(request, env, origin);
+      if (request.method === 'POST' && url.pathname === '/label-file') return await labelFileRoute(request, env, origin);
       if (request.method === 'POST') return await createSession(request, env, origin, ctx);
     } catch (e) {
       return json({ error: 'payment server error, try again' }, 502, origin);

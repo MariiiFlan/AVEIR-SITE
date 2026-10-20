@@ -140,3 +140,16 @@ export async function handleLabel(env, b, kindBySlug) {
   const out = b.confirm === true ? await buy(env, id, doc) : await quote(env, id, doc, kindBySlug);
   return { status: out.error ? 400 : 200, body: out };
 }
+
+export async function handleLabelFile(env, b) {
+  const who = await verifyStaff(env, b.token);
+  if (!who) return { status: 403, error: 'not staff' };
+  const id = String(b.order || '');
+  if (!/^[A-Za-z0-9_-]{6,200}$/.test(id)) return { status: 400, error: 'bad order' };
+  const doc = await getDoc(env, 'orders/' + encodeURIComponent(id));
+  const url = doc && doc.data.label && doc.data.label.url;
+  if (!url || !/^https:\/\//.test(url)) return { status: 404, error: 'no label' };
+  const r = await fetch(url);
+  if (!r.ok) return { status: 502, error: 'label file unavailable' };
+  return { status: 200, bytes: await r.arrayBuffer() };
+}
