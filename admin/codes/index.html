@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>AVEIR ADMIN CODES</title>
+  <link rel="icon" type="image/png" href="../../favicon.png">
+  <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="../admin.css">
+  <link rel="stylesheet" href="codes.css">
+  <script src="../../catalog.js"></script>
+  <script src="../../aveir-pay.js"></script>
+  <script src="../../aveir-cloud.js" defer></script>
+  <script src="codes.js" defer></script>
+</head>
+<body>
+  <div class="av-gate" id="gate">CHECKING ACCESS...</div>
+  <div class="av-shell">
+    <aside class="av-side">
+      <div>
+        <a href="../../"><img class="av-side-logo" src="../../email-assets/avr.png" alt="AVEIR"></a>
+        <div class="av-side-tag">ADMIN - OWNERS ONLY</div>
+      </div>
+      <nav class="av-nav">
+        <a href="../orders/">ORDERS</a>
+        <a href="../email/">EMAIL BLAST</a>
+        <a href="../profit/">COSTS &amp; PROFIT</a>
+        <a href="../products/">PRODUCTS</a>
+        <a href="../hero/">FRONT PAGE</a>
+        <a href="../arrivals/">NEW ARRIVALS</a>
+        <a href="./" class="is-on">CODES</a>
+        <a href="../team/">TEAM</a>
+      </nav>
+      <div class="av-me">
+        <div class="av-label">SIGNED IN</div>
+        <div class="av-me-email" id="me"></div>
+        <button class="av-link" id="signout" type="button">SIGN OUT</button>
+      </div>
+    </aside>
+
+    <main class="av-main">
+      <div class="av-head">
+        <div><span class="av-title">CODES</span><span class="av-head-count" id="count"></span></div>
+        <button class="av-btn-ghost" id="refreshBtn" type="button">REFRESH</button>
+      </div>
+
+      <div class="av-body">
+        <div class="av-stack">
+          <section class="av-panel">
+            <div class="av-panel-head"><span class="av-label">ALL CODES</span><span class="av-label" id="listCount"></span></div>
+            <div class="av-panel-body av-codes-filters">
+              <div class="av-tabs av-tabs-3" id="filterTabs">
+                <button class="av-tab is-on" type="button" data-filter="active">ACTIVE</button>
+                <button class="av-tab" type="button" data-filter="used">USED / KILLED</button>
+                <button class="av-tab" type="button" data-filter="all">ALL</button>
+              </div>
+              <div class="av-tabs av-tabs-4" id="kindTabs">
+                <button class="av-tab is-on" type="button" data-kind="">EVERY TYPE</button>
+                <button class="av-tab" type="button" data-kind="manual">MADE HERE</button>
+                <button class="av-tab" type="button" data-kind="welcome">SIGNUP</button>
+                <button class="av-tab" type="button" data-kind="receipt">RECEIPT</button>
+              </div>
+              <input class="av-input" id="search" type="text" placeholder="SEARCH A CODE, NOTE OR EMAIL" autocomplete="off">
+            </div>
+            <div id="codeList"><div class="av-empty">LOADING...</div></div>
+          </section>
+        </div>
+
+        <div class="av-stack">
+          <section class="av-panel">
+            <div class="av-panel-head"><span class="av-label">MAKE CODES</span></div>
+            <div class="av-panel-body">
+              <div class="av-field">
+                <div class="av-label">% OFF</div>
+                <div class="av-pct-row" id="pctRow">
+                  <button class="av-pct" type="button" data-pct="10">10</button>
+                  <button class="av-pct" type="button" data-pct="15">15</button>
+                  <button class="av-pct" type="button" data-pct="20">20</button>
+                  <button class="av-pct is-on" type="button" data-pct="25">25</button>
+                  <button class="av-pct" type="button" data-pct="30">30</button>
+                  <button class="av-pct" type="button" data-pct="50">50</button>
+                </div>
+                <input class="av-input" id="pct" type="number" min="1" max="90" step="1" value="25">
+              </div>
+              <div class="av-field-pair">
+                <div class="av-field">
+                  <div class="av-label">HOW MANY CODES</div>
+                  <input class="av-input" id="count1" type="number" min="1" max="50" step="1" value="1">
+                </div>
+                <div class="av-field">
+                  <div class="av-label">USES EACH</div>
+                  <input class="av-input" id="uses" type="number" min="1" max="1000" step="1" value="1">
+                </div>
+              </div>
+              <div class="av-field" id="customField">
+                <div class="av-label">PICK THE CODE YOURSELF (OPTIONAL)</div>
+                <input class="av-input" id="custom" type="text" maxlength="24" placeholder="LEAVE BLANK FOR A RANDOM ONE" autocomplete="off">
+              </div>
+              <div class="av-field">
+                <div class="av-label">NOTE (OPTIONAL)</div>
+                <input class="av-input" id="noteIn" type="text" maxlength="60" placeholder="WHO IS IT FOR, WHERE DID YOU POST IT" autocomplete="off">
+              </div>
+              <div class="av-note" id="sum"></div>
+              <button class="av-btn" id="makeBtn" type="button">MAKE CODE</button>
+              <div class="av-note" id="note"></div>
+            </div>
+          </section>
+
+          <section class="av-panel" id="madePanel" hidden>
+            <div class="av-panel-head"><span class="av-label">JUST MADE</span><button class="av-btn-ghost" id="copyAll" type="button">COPY ALL</button></div>
+            <div id="madeList"></div>
+          </section>
+
+          <section class="av-panel">
+            <div class="av-panel-head"><span class="av-label">ALWAYS ON</span></div>
+            <div id="fixedList"><div class="av-empty">NONE</div></div>
+            <div class="av-note av-note-pad">THESE LIVE IN CATALOG.JS AND NEVER RUN OUT. MADE CODES TOP OUT AT 90% OFF.</div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

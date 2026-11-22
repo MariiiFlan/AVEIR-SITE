@@ -1,0 +1,36 @@
+.av-note-pad { padding: 0 20px 16px; }
+.av-body { grid-template-columns: 1fr 380px; }
+.av-tabs-3 { grid-template-columns: repeat(3, 1fr); }
+.av-tabs-4 { grid-template-columns: repeat(4, 1fr); }
+.av-codes-filters { border-bottom: 1px solid #232323; }
+.av-field { display: flex; flex-direction: column; gap: 8px; }
+.av-field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.av-pct-row { display: grid; grid-template-columns: repeat(6, 1fr); border: 1px solid #2c2c2c; }
+.av-pct { background: transparent; border: none; border-right: 1px solid #2c2c2c; color: #999; font: 700 11px 'Space Mono', monospace; letter-spacing: .1em; padding: 11px 0; cursor: pointer; }
+.av-pct:last-child { border-right: none; }
+.av-pct.is-on { background: #ff06bc; color: #fff; }
+.av-field input[disabled] { opacity: .4; }
+
+.av-code { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; padding: 14px 20px; border-bottom: 1px solid #1c1c1c; }
+.av-code:last-child { border-bottom: none; }
+.av-code.is-dead .av-code-name { color: #555; text-decoration: line-through; }
+.av-code-name { font: 700 15px 'Space Mono', monospace; letter-spacing: .12em; word-break: break-all; }
+.av-code-pct { font-family: 'Anton', Impact, sans-serif; font-size: 18px; color: #ff06bc; margin-left: 10px; letter-spacing: .02em; }
+.av-code-meta { font: 400 10px 'Space Mono', monospace; letter-spacing: .12em; color: #777; margin-top: 6px; line-height: 1.8; word-break: break-word; }
+.av-code-note { color: #f2efe9; }
+.av-code-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.av-chip-manual { background: #ff06bc; color: #fff; }
+.av-chip-welcome { border: 1px solid #3fd18b; color: #3fd18b; }
+.av-chip-receipt { border: 1px solid #f2efe9; color: #f2efe9; }
+.av-chip-other { border: 1px solid #555; color: #999; }
+.av-chip-dead { border: 1px solid #555; color: #777; }
+.av-more { display: block; width: 100%; border: none; border-top: 1px solid #1c1c1c; }
+
+@media (max-width: 860px) {
+  .av-body { grid-template-columns: 1fr; }
+  .av-body > .av-stack:last-child { order: -1; }
+  .av-tabs-4 { grid-template-columns: 1fr 1fr; }
+  .av-codes-filters .av-tab { font-size: 9px; letter-spacing: .1em; }
+  .av-code { grid-template-columns: 1fr; }
+  .av-code-actions { justify-content: flex-start; }
+}

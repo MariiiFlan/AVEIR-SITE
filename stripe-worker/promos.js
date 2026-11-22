@@ -31,7 +31,7 @@ export async function lookupPromo(env, code) {
   const rate = Number(d.rate) || 0;
   const maxUses = Number(d.maxUses) || 1;
   const uses = Number(d.uses) || 0;
-  if (rate <= 0 || rate > 1 || uses >= maxUses) return null;
+  if (d.disabled === true || rate <= 0 || rate > 1 || uses >= maxUses) return null;
   return { code: c, rate, left: maxUses - uses, kind: d.kind || '' };
 }
 
@@ -46,10 +46,13 @@ export async function createPromo(env, opts) {
       orderNumber: String(opts.orderNumber || ''),
       maxUses: Number(opts.maxUses) || 1,
       uses: 0,
+      note: String(opts.note || '').slice(0, 60),
+      createdBy: String(opts.createdBy || '').toLowerCase(),
       createdAt: new Date()
     });
     if (r.ok) return code;
     if (r.status !== 409) throw new Error('could not create promo');
+    if (opts.exact) throw new Error('that code already exists');
     code = makeCode();
   }
   throw new Error('could not create promo');
